@@ -179,3 +179,7 @@ These Commander One features are out of scope, as listed in SPEC.md §10:
   keyboard's `+`, `-` and `*`. While type-ahead is active those keys type instead.
 - Get Finder Info and Make Alias go through Finder via AppleScript. The first use asks for
   Automation permission.
+
+## License
+
+MIT. See [LICENSE](LICENSE). Third-party crates keep their own licenses.
