@@ -1,0 +1,82 @@
+{
+ "SavedLeftTabs": [
+  {
+   "label": "Macintosh HD/Users/<user>",
+   "directory": true,
+   "options": {
+    "path": "/",
+    "DAVolumeName": "Macintosh HD"
+   },
+   "bundle": false,
+   "path": "/Users/<user>",
+   "symlink": false,
+   "lockState": 0,
+   "mode": 1,
+   "viewOptions": {
+    "columns order2": {
+     "kind": 8,
+     "added": 5,
+     "size": 2,
+     "date": 3,
+     "created": 4,
+     "extension": 1,
+     "permissions": 7,
+     "name": 0,
+     "accessed": 6
+    },
+    "columns size": {
+     "name": 127.5,
+     "permissions": 80.0,
+     "date": 130.0,
+     "size": 65.0,
+     "accessed": 130.0,
+     "kind": 80.0,
+     "created": 130.0,
+     "added": 130.0,
+     "extension": 40.0
+    }
+   },
+   "sortKey2": "name",
+   "sortOrder": true,
+   "name": "TCXLocalFS",
+   "isActive": true
+  }
+ ],
+ "historyLeft": [
+  {
+   "bundle": false,
+   "symlink": false,
+   "directory": true,
+   "label": "Macintosh HD/Users/<user>",
+   "path": "/Users/<user>",
+   "options": {
+    "path": "/",
+    "DAVolumeName": "Macintosh HD"
+   },
+   "name": "TCXLocalFS"
+  }
+ ],
+ "PointerActions": {
+  "Gesture,ThreeFingerSwipeDown,,": {
+   "Action": "kPrevWindowPointerAction"
+  },
+  "Gesture,ThreeFingerSwipeUp,,": {
+   "Action": "kNextWindowPointerAction"
+  },
+  "Button,1,1,,": {
+   "Action": "kContextMenuPointerAction"
+  },
+  "Gesture,ThreeFingerSwipeLeft,,": {
+   "Action": "kPrevTabPointerAction"
+  },
+  "Gesture,ThreeFingerSwipeRight,,": {
+   "Action": "kNextTabPointerAction"
+  },
+  "Button,2,1,,": {
+   "Action": "kPasteFromSelectionPointerAction"
+  }
+ },
+ "NSWindow Frame TCXWindow": "165 118 950 648 0 0 1440 870 ",
+ "KeymanagerVersion": 6,
+ "CommandsHistory": []
+}

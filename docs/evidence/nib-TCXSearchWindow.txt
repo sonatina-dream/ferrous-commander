@@ -1,0 +1,50 @@
+NSButton NSButton {} ['cancelSearchAction:']
+NSButtonCell Cancel {'NSContents': 'Cancel'} 
+NSButton NSButton {} ['startSearchAction:']
+NSButtonCell Search {'NSContents': 'Search'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSButtonCell Case sensetive {'NSContents': 'Case sensetive'} 
+NSButton NSButton {} ['showResultAction:']
+NSButtonCell feed to listbox {'NSContents': 'feed to listbox'} 
+NSButton NSButton {} ['updateStateTextOptionsAction:']
+NSButtonCell Find text {'NSContents': 'Find text'} 
+NSButtonCell CaseSensitive {'NSContents': 'CaseSensitive'} 
+NSPopUpButton NSPopUpButton {} ['encodingChangedAction:']
+NSButton NSButton {} ['regexChangedAction:']
+NSButtonCell RegEx {'NSContents': 'RegEx'} 
+NSTableColumn 0 {'NSIdentifier': '0'} 
+NSTextFieldCell Field {'NSContents': 'Field'} 
+NSButtonCell WholeWords {'NSContents': 'WholeWords'} 
+NSButton NSButton {} ['gotoFileAction:']
+NSButtonCell Goto file {'NSContents': 'Goto file'} 
+NSTextFieldCell Search for: {'NSContents': 'Search for:'} 
+NSMenuItem Item 1 {'NSTitle': 'Item 1', 'NSKeyEquivModMask': 1048576} 
+NSMenuItem Item 2 {'NSTitle': 'Item 2', 'NSKeyEquivModMask': 1048576} 
+NSMenuItem Item 3 {'NSTitle': 'Item 3', 'NSKeyEquivModMask': 1048576} 
+NSTextFieldCell Depth: {'NSContents': 'Depth:'} 
+NSButton NSButton {} ['archivesChangedAction:']
+NSButtonCell Search in archives {'NSContents': 'Search in archives'} 
+NSButtonCell Search in selection {'NSContents': 'Search in selection'} 
+NSTableColumn 0 {'NSIdentifier': '0'} 
+NSTextFieldCell Field {'NSContents': 'Field'} 
+NSButtonCell RegEx {'NSContents': 'RegEx'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSTextFieldCell Search for: {'NSContents': 'Search for:'} 
+NSButtonCell Search in content {'NSContents': 'Search in content'} 
+NSButtonCell Search in selections {'NSContents': 'Search in selections'} 
+NSTableColumn 0 {'NSIdentifier': '0'} 
+NSTextFieldCell Field {'NSContents': 'Field'} 
+NSTableColumn AutomaticTableColumnIdentifier.0 {'NSIdentifier': 'AutomaticTableColumnIdentifier.0'} 
+NSTextFieldCell Text Cell {'NSContents': 'Text Cell'} 
+NSButton NSButton {} ['viewAction:']
+NSButtonCell View {'NSContents': 'View'} 
+NSTextFieldCell Table View Cell {'NSContents': 'Table View Cell'} 
+action cancelSearchAction: {} ['cancelSearchAction:', '_TtC3TCX15TCXSearchWindow']
+action startSearchAction: {} ['startSearchAction:', '_TtC3TCX15TCXSearchWindow']
+action showResultAction: {} ['showResultAction:', '_TtC3TCX15TCXSearchWindow']
+action updateStateTextOptionsAction: {} ['updateStateTextOptionsAction:', '_TtC3TCX15TCXSearchWindow']
+action encodingChangedAction: {} ['encodingChangedAction:', '_TtC3TCX15TCXSearchWindow']
+action regexChangedAction: {} ['regexChangedAction:', '_TtC3TCX15TCXSearchWindow']
+action gotoFileAction: {} ['gotoFileAction:', '_TtC3TCX15TCXSearchWindow']
+action archivesChangedAction: {} ['archivesChangedAction:', '_TtC3TCX15TCXSearchWindow']
+action viewAction: {} ['viewAction:', '_TtC3TCX15TCXSearchWindow']

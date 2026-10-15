@@ -1,0 +1,931 @@
+[
+ {
+  "action": "TCXQueueAction",
+  "raw": 8388728,
+  "keycode": 120,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "F2"
+ },
+ {
+  "action": "TCXNewWindowAction",
+  "raw": 1048621,
+  "keycode": 45,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-N"
+ },
+ {
+  "action": "TCXViewAction",
+  "raw": 8388707,
+  "keycode": 99,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "F3"
+ },
+ {
+  "action": "TCXEditAction",
+  "raw": 8388726,
+  "keycode": 118,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "F4"
+ },
+ {
+  "action": "TCXCopyAction",
+  "raw": 8388704,
+  "keycode": 96,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "F5"
+ },
+ {
+  "action": "TCXMoveAction",
+  "raw": 8388705,
+  "keycode": 97,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "F6"
+ },
+ {
+  "action": "TCXNewFolderAction",
+  "raw": 8388706,
+  "keycode": 98,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "F7"
+ },
+ {
+  "action": "TCXDeleteAction",
+  "raw": 8388708,
+  "keycode": 100,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "F8"
+ },
+ {
+  "action": "TCXDeleteForceAction",
+  "raw": 8519780,
+  "keycode": 100,
+  "mods": [
+   "shift"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "shift-F8"
+ },
+ {
+  "action": "TCXDeleteAction",
+  "raw": 8388725,
+  "keycode": 117,
+  "mods": [],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "ForwardDelete"
+ },
+ {
+  "action": "TCXDeleteForceAction",
+  "raw": 8519797,
+  "keycode": 117,
+  "mods": [
+   "shift"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "shift-ForwardDelete"
+ },
+ {
+  "action": "TCXDublicateFileAction",
+  "raw": 1048578,
+  "keycode": 2,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-D"
+ },
+ {
+  "action": "TCXNewFileAction",
+  "raw": 8519798,
+  "keycode": 118,
+  "mods": [
+   "shift"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "shift-F4"
+ },
+ {
+  "action": "TCXMakeLinkAction",
+  "raw": 1048613,
+  "keycode": 37,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-L"
+ },
+ {
+  "action": "TCXMakeAliasAction",
+  "raw": 1572901,
+  "keycode": 37,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-L"
+ },
+ {
+  "action": "TCXRenameAction",
+  "raw": 8519777,
+  "keycode": 97,
+  "mods": [
+   "shift"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "shift-F6"
+ },
+ {
+  "action": "TCXShowInfoAction",
+  "raw": 1048610,
+  "keycode": 34,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-I"
+ },
+ {
+  "action": "TCXShowFinderInfoAction",
+  "raw": 1572898,
+  "keycode": 34,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-I"
+ },
+ {
+  "action": "TCXShowInFinderAction",
+  "raw": 1572895,
+  "keycode": 31,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-O"
+ },
+ {
+  "action": "TCXShowQuickLookAction",
+  "raw": 1048592,
+  "keycode": 16,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-Y"
+ },
+ {
+  "action": "TCXCompressAction",
+  "raw": 8650848,
+  "keycode": 96,
+  "mods": [
+   "ctrl"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "ctrl-F5"
+ },
+ {
+  "action": "TCXCompressWithOptionsAction",
+  "raw": 9175136,
+  "keycode": 96,
+  "mods": [
+   "ctrl",
+   "alt"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "ctrl-alt-F5"
+ },
+ {
+  "action": "TCXUncompressAction",
+  "raw": 8650853,
+  "keycode": 101,
+  "mods": [
+   "ctrl"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "ctrl-F9"
+ },
+ {
+  "action": "TCXNewTabAction",
+  "raw": 1179665,
+  "keycode": 17,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-T"
+ },
+ {
+  "action": "TCXCloneTabAction",
+  "raw": 1048593,
+  "keycode": 17,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-T"
+ },
+ {
+  "action": "TCXSearchAction",
+  "raw": 8912994,
+  "keycode": 98,
+  "mods": [
+   "alt"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "alt-F7"
+ },
+ {
+  "action": "TCXSearchSpotlightAction",
+  "raw": 9175138,
+  "keycode": 98,
+  "mods": [
+   "ctrl",
+   "alt"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "ctrl-alt-F7"
+ },
+ {
+  "action": "TCXSwapPanelsAction",
+  "raw": 655374,
+  "keycode": 14,
+  "mods": [
+   "alt",
+   "shift"
+  ],
+  "flags_extra": [],
+  "chord": "alt-shift-E"
+ },
+ {
+  "action": "TCXEqualizePanelsAction",
+  "raw": 524302,
+  "keycode": 14,
+  "mods": [
+   "alt"
+  ],
+  "flags_extra": [],
+  "chord": "alt-E"
+ },
+ {
+  "action": "TCXSelectAction",
+  "raw": 2097221,
+  "keycode": 69,
+  "mods": [],
+  "flags_extra": [
+   "numpad"
+  ],
+  "chord": "Num+"
+ },
+ {
+  "action": "TCXUnselectAction",
+  "raw": 2097230,
+  "keycode": 78,
+  "mods": [],
+  "flags_extra": [
+   "numpad"
+  ],
+  "chord": "Num-"
+ },
+ {
+  "action": "TCXInvertSelectAction",
+  "raw": 2097219,
+  "keycode": 67,
+  "mods": [],
+  "flags_extra": [
+   "numpad"
+  ],
+  "chord": "Num*"
+ },
+ {
+  "action": "TCXSelectAllAction",
+  "raw": 1048576,
+  "keycode": 0,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-A"
+ },
+ {
+  "action": "TCXSelectAllAction",
+  "raw": 3145797,
+  "keycode": 69,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [
+   "numpad"
+  ],
+  "chord": "cmd-Num+"
+ },
+ {
+  "action": "TCXUnselectAllAction",
+  "raw": 3145806,
+  "keycode": 78,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [
+   "numpad"
+  ],
+  "chord": "cmd-Num-"
+ },
+ {
+  "action": "TCXChangeDriveLeft",
+  "raw": 8913018,
+  "keycode": 122,
+  "mods": [
+   "alt"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "alt-F1"
+ },
+ {
+  "action": "TCXChangeDriveRight",
+  "raw": 8913016,
+  "keycode": 120,
+  "mods": [
+   "alt"
+  ],
+  "flags_extra": [
+   "fn"
+  ],
+  "chord": "alt-F2"
+ },
+ {
+  "action": "TCXSwitchTab",
+  "raw": 48,
+  "keycode": 48,
+  "mods": [],
+  "flags_extra": [],
+  "chord": "Tab"
+ },
+ {
+  "action": "TCXEnterItem",
+  "raw": 524324,
+  "keycode": 36,
+  "mods": [
+   "alt"
+  ],
+  "flags_extra": [],
+  "chord": "alt-Return"
+ },
+ {
+  "action": "TCXPasteItemNameAction",
+  "raw": 262180,
+  "keycode": 36,
+  "mods": [
+   "ctrl"
+  ],
+  "flags_extra": [],
+  "chord": "ctrl-Return"
+ },
+ {
+  "action": "TCXPasteItemPathAction",
+  "raw": 393252,
+  "keycode": 36,
+  "mods": [
+   "ctrl",
+   "shift"
+  ],
+  "flags_extra": [],
+  "chord": "ctrl-shift-Return"
+ },
+ {
+  "action": "TCXCopyItemNameAction",
+  "raw": 1572872,
+  "keycode": 8,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-C"
+ },
+ {
+  "action": "TCXCopyItemPathAction",
+  "raw": 1310728,
+  "keycode": 8,
+  "mods": [
+   "ctrl",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "ctrl-cmd-C"
+ },
+ {
+  "action": "TCXShowTerminal",
+  "raw": 262175,
+  "keycode": 31,
+  "mods": [
+   "ctrl"
+  ],
+  "flags_extra": [],
+  "chord": "ctrl-O"
+ },
+ {
+  "action": "TCXReloadContent",
+  "raw": 1048591,
+  "keycode": 15,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-R"
+ },
+ {
+  "action": "TCXViewModeFull",
+  "raw": 1048594,
+  "keycode": 18,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-1"
+ },
+ {
+  "action": "TCXViewModeBrief",
+  "raw": 1048595,
+  "keycode": 19,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-2"
+ },
+ {
+  "action": "TCXViewModeThumbs",
+  "raw": 1048596,
+  "keycode": 20,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-3"
+ },
+ {
+  "action": "name",
+  "raw": 1572882,
+  "keycode": 18,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-1"
+ },
+ {
+  "action": "extension",
+  "raw": 1572883,
+  "keycode": 19,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-2"
+ },
+ {
+  "action": "created",
+  "raw": 1572887,
+  "keycode": 23,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-5"
+ },
+ {
+  "action": "added",
+  "raw": 1572886,
+  "keycode": 22,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-6"
+ },
+ {
+  "action": "accessed",
+  "raw": 1572890,
+  "keycode": 26,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-7"
+ },
+ {
+  "action": "permissions",
+  "raw": 1572889,
+  "keycode": 25,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-9"
+ },
+ {
+  "action": "TCXViewSortAscending",
+  "raw": 1572864,
+  "keycode": 0,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-A"
+ },
+ {
+  "action": "TCXViewSortDescending",
+  "raw": 1572866,
+  "keycode": 2,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-D"
+ },
+ {
+  "action": "TCXViewShowHidden",
+  "raw": 1703940,
+  "keycode": 4,
+  "mods": [
+   "alt",
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-shift-cmd-H"
+ },
+ {
+  "action": "TCXViewFullScreen",
+  "raw": 1572867,
+  "keycode": 3,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-F"
+ },
+ {
+  "action": "TCXViewShowButtons",
+  "raw": 1179659,
+  "keycode": 11,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-B"
+ },
+ {
+  "action": "TCXViewShowCommandLine",
+  "raw": 1179683,
+  "keycode": 35,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-P"
+ },
+ {
+  "action": "TCXViewShowDiskList",
+  "raw": 1572865,
+  "keycode": 1,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-S"
+ },
+ {
+  "action": "TCXViewShowDiskInfo",
+  "raw": 1179682,
+  "keycode": 34,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-I"
+ },
+ {
+  "action": "TCXViewShowPathBar",
+  "raw": 1572899,
+  "keycode": 35,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-P"
+ },
+ {
+  "action": "TCXViewShowSelectionInfo",
+  "raw": 1179649,
+  "keycode": 1,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-S"
+ },
+ {
+  "action": "TCXGoBackAction",
+  "raw": 1048609,
+  "keycode": 33,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-["
+ },
+ {
+  "action": "TCXGoForwardAction",
+  "raw": 1048606,
+  "keycode": 30,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-]"
+ },
+ {
+  "action": "TCXGoTopAction",
+  "raw": 1048702,
+  "keycode": 126,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-Up"
+ },
+ {
+  "action": "TCXGoHomeAction",
+  "raw": 1179652,
+  "keycode": 4,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-H"
+ },
+ {
+  "action": "TCXGoDesktopAction",
+  "raw": 1179650,
+  "keycode": 2,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-D"
+ },
+ {
+  "action": "TCXGoDocumentsAction",
+  "raw": 1179679,
+  "keycode": 31,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-O"
+ },
+ {
+  "action": "TCXGoDownloadsAction",
+  "raw": 1179685,
+  "keycode": 37,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-L"
+ },
+ {
+  "action": "TCXGoApplicationsAction",
+  "raw": 1179648,
+  "keycode": 0,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-A"
+ },
+ {
+  "action": "TCXGoSystemApplicationsAction",
+  "raw": 1703936,
+  "keycode": 0,
+  "mods": [
+   "alt",
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-shift-cmd-A"
+ },
+ {
+  "action": "TCXGoUtilitiesAction",
+  "raw": 1179680,
+  "keycode": 32,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-U"
+ },
+ {
+  "action": "TCXGoFolderAction",
+  "raw": 1179653,
+  "keycode": 5,
+  "mods": [
+   "shift",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "shift-cmd-G"
+ },
+ {
+  "action": "TCXGoServerAction",
+  "raw": 1048616,
+  "keycode": 40,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-K"
+ },
+ {
+  "action": "TCXEjectAction",
+  "raw": 1048590,
+  "keycode": 14,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-E"
+ },
+ {
+  "action": "TCXShowFTPAction",
+  "raw": 1048579,
+  "keycode": 3,
+  "mods": [
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "cmd-F"
+ },
+ {
+  "action": "TCXShowFavoritesAction",
+  "raw": 1310723,
+  "keycode": 3,
+  "mods": [
+   "ctrl",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "ctrl-cmd-F"
+ },
+ {
+  "action": "TCXNextTabAction",
+  "raw": 262192,
+  "keycode": 48,
+  "mods": [
+   "ctrl"
+  ],
+  "flags_extra": [],
+  "chord": "ctrl-Tab"
+ },
+ {
+  "action": "TCXPrevTabAction",
+  "raw": 393264,
+  "keycode": 48,
+  "mods": [
+   "ctrl",
+   "shift"
+  ],
+  "flags_extra": [],
+  "chord": "ctrl-shift-Tab"
+ },
+ {
+  "action": "TCXSelectItemWithSizeAction",
+  "raw": 49,
+  "keycode": 49,
+  "mods": [],
+  "flags_extra": [],
+  "chord": "Space"
+ },
+ {
+  "action": "TCXOpenItemAction",
+  "raw": 36,
+  "keycode": 36,
+  "mods": [],
+  "flags_extra": [],
+  "chord": "Return"
+ },
+ {
+  "action": "TCXSelectItemAction",
+  "raw": 10,
+  "keycode": 10,
+  "mods": [],
+  "flags_extra": [],
+  "chord": "\u00a7"
+ },
+ {
+  "action": "size",
+  "raw": 1572884,
+  "keycode": 20,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-3"
+ },
+ {
+  "action": "date",
+  "raw": 1572885,
+  "keycode": 21,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-4"
+ },
+ {
+  "action": "kind",
+  "raw": 1572892,
+  "keycode": 28,
+  "mods": [
+   "alt",
+   "cmd"
+  ],
+  "flags_extra": [],
+  "chord": "alt-cmd-8"
+ }
+]

@@ -1,0 +1,35 @@
+[workspace]
+resolver = "3"
+members = ["crates/fc-core", "crates/fc-app"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+
+[workspace.dependencies]
+fc-core = { path = "crates/fc-core" }
+gpui = "0.2.2"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+regex = "1.11"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+libc = "0.2"
+dirs = "5.0"
+zip = { version = "2.4", default-features = false, features = ["deflate"] }
+flate2 = "1.1"
+tar = "0.4"
+trash = "5.2"
+notify = { version = "8.2", default-features = false, features = ["macos_fsevent"] }
+tempfile = "3.20"
+anyhow = "1.0"
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
+codegen-units = 4

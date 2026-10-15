@@ -1,0 +1,48 @@
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell label: {'NSContents': 'label:'} 
+NSImageCell NSImageCell {'NSContents': {'objectID': '57'}} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell 999.99 Gb {'NSContents': '999.99 Gb'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell label: {'NSContents': 'label:'} 
+NSButton NSButton {} ['permitionsChanged:']
+NSButton NSButton {} ['permitionsChanged:']
+NSButton NSButton {} ['permitionsChanged:']
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSButton NSButton {} ['lockedChanged:']
+NSButtonCell Locked {'NSContents': 'Locked'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell label: {'NSContents': 'label:'} 
+NSTextFieldCell label: {'NSContents': 'label:'} 
+NSButton NSButton {} ['permitionsChanged:']
+NSButton NSButton {} ['permitionsChanged:']
+NSButton NSButton {} ['permitionsChanged:']
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell label: {'NSContents': 'label:'} 
+NSButton NSButton {} ['permitionsChanged:']
+NSButton NSButton {} ['permitionsChanged:']
+NSButton NSButton {} ['permitionsChanged:']
+NSTextFieldCell label: {'NSContents': 'label:'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSTextFieldCell label: {'NSContents': 'label:'} 
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action lockedChanged: {} ['lockedChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']
+action permitionsChanged: {} ['permitionsChanged:', '_TtC3TCX11TCXFileInfo']

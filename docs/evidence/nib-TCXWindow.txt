@@ -1,0 +1,42 @@
+NSButton NSButton {} ['newFolderAction:']
+NSButtonCell 6 {'NSContents': '6'} 
+NSButton NSButton {} ['editAction:']
+NSButtonCell 3 {'NSContents': '3'} 
+NSButton NSButton {} ['viewAction:']
+NSButtonCell 2 {'NSContents': '2'} 
+NSButton NSButton {} ['deleteAction:']
+NSButtonCell 7 {'NSContents': '7'} 
+NSButton NSButton {} ['copyAction:']
+NSButtonCell 4 {'NSContents': '4'} 
+NSButton NSButton {} ['moveAction:']
+NSButtonCell 5 {'NSContents': '5'} 
+NSComboBox NSComboBox {} ['commandPromtAction:']
+NSTableColumn 0 {'NSIdentifier': '0'} 
+NSTextFieldCell Field {'NSContents': 'Field'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSButton NSButton {} ['showQueueList:']
+NSSegmentedControl NSSegmentedControl {} ['historyAction:']
+NSSegmentedControl NSSegmentedControl {} ['switchViewAction:']
+NSMenuItem NSMenuItem {'NSKeyEquivModMask': 1048576} 
+NSMenuItem NSMenuItem {'NSKeyEquivModMask': 1048576} 
+ControlToolbarItem ControlToolbarItem {} ['createArchiveAction:']
+NSButton NSButton {} ['showFTPConnections:']
+NSButton NSButton {} ['showInfoAction:']
+NSButton NSButton {} ['switchQuicklLookPanel:']
+NSButton NSButton {} ['searchAction:']
+action newFolderAction: {} ['newFolderAction:', None]
+action editAction: {} ['editAction:', None]
+action viewAction: {} ['viewAction:', None]
+action deleteAction: {} ['deleteAction:', None]
+action copyAction: {} ['copyAction:', None]
+action moveAction: {} ['moveAction:', None]
+action commandPromtAction: {} ['commandPromtAction:', 'TCXWindow']
+action showQueueList: {} ['showQueueList:', 'TCXWindow']
+action historyAction: {} ['historyAction:', 'TCXWindow']
+action switchViewAction: {} ['switchViewAction:', None]
+action createArchiveAction: {} ['createArchiveAction:', 'TCXWindow']
+action showFTPConnections: {} ['showFTPConnections:', None]
+action showInfoAction: {} ['showInfoAction:', 'TCXWindow']
+action switchQuicklLookPanel: {} ['switchQuicklLookPanel:', None]
+action searchAction: {} ['searchAction:', 'TCXWindow']

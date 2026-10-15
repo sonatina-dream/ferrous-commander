@@ -1,0 +1,15 @@
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Label {'NSContents': 'Label'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSButton NSButton {} ['favoriteActions:']
+NSButton NSButton {} ['historyActions:']
+_TtC3TCX14TCXPathControl _TtC3TCX14TCXPathControl {} ['pathControlClick:']
+NSPathCell NSPathCell {'NSContents': {'objectID': '111'}} 
+NSPathComponentCell Macintosh HD {'NSContents': 'Macintosh HD'} 
+NSPathComponentCell Applications {'NSContents': 'Applications'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+NSTextFieldCell Title {'NSContents': 'Title'} 
+action favoriteActions: {} ['favoriteActions:', '_TtC3TCX11TCXPanelTab']
+action historyActions: {} ['historyActions:', '_TtC3TCX11TCXPanelTab']
+action pathControlClick: {} ['pathControlClick:', '_TtC3TCX11TCXPanelTab']

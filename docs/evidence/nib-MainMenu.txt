@@ -1,0 +1,174 @@
+Make symlink                     key=''         mask=None tag=None [('target_action', 'makeSymlinkAction:')]
+Folder size                      key=''         mask=None tag=None [('target_action', 'directorySizeAction:')]
+Select Next Tab                  key=''         mask=None tag=None [('target_action', 'selectNextTabAction:')]
+Eject drive                      key=''         mask=None tag=None [('target_action', 'ejectDriveAction:')]
+size                             key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+Compress...                      key=''         mask=524288 tag=None [('target_action', 'createArchiveAction:')]
+Uncompress                       key=''         mask=None tag=None [('target_action', 'uncompressAction:')]
+enclosing folder                 key=''         mask=None tag=None [('target_action', 'goUpAction:')]
+Go to Folder...                  key=''         mask=None tag=None [('target_action', 'goToFolderAction:')]
+disk info                        key=''         mask=None tag=None 
+forward                          key=''         mask=None tag=None [('target_action', 'goForwardAction:')]
+path bar                         key=''         mask=None tag=None 
+reload                           key=''         mask=None tag=None [('target_action', 'reloadContent:')]
+FTP                              key=''         mask=None tag=None [('target_action', 'showFTPConnections:')]
+back                             key=''         mask=None tag=None [('target_action', 'goBackAction:')]
+Get info                         key=''         mask=None tag=None [('target_action', 'getInfoClick:')]
+selection info                   key=''         mask=None tag=None 
+Applications                     key=''         mask=None tag=None [('target_action', 'goApplicationsAction:')]
+Downloads                        key=''         mask=None tag=None [('target_action', 'goDownloadsAction:')]
+show hidden files                key=''         mask=None tag=None 
+Rename                           key=''         mask=None tag=None [('target_action', 'renameAction:')]
+name                             key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+permissions                      key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+thumbs                           key=''         mask=None tag=3 [('target_action', 'switchViewAction:')]
+View                             key=''         mask=None tag=None [('target_action', 'viewAction:')]
+disk list                        key=''         mask=None tag=None 
+Duplicate Active Tab             key=''         mask=None tag=None [('target_action', 'duplicateTabAction:')]
+FTP                              key=''         mask=None tag=None [('target_action', 'showFTPConnections:')]
+date                             key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+Show in finder                   key=''         mask=None tag=None [('target_action', 'showInFinderAction:')]
+Get Finder info                  key=''         mask=None tag=None [('target_action', 'getFilderInfoAction:')]
+Delete                           key=''         mask=None tag=None [('target_action', 'deleteAction:')]
+New folder                       key=''         mask=None tag=None [('target_action', 'newFolderAction:')]
+source<>target                   key=''         mask=None tag=None [('target_action', 'switchPanelsAction:')]
+Select All                       key='a'        mask=1048576 tag=None [('target_action', 'selectAll:')]
+Permanent Delete                 key=''         mask=None tag=None [('target_action', 'deleteForceAction:')]
+Compress                         key=''         mask=None tag=None [('target_action', 'quickCreateArchiveAction:')]
+Dublicate                        key=''         mask=None tag=None [('target_action', 'dublicateFileAction:')]
+Move                             key=''         mask=None tag=None [('target_action', 'moveAction:')]
+show terminal                    key=''         mask=None tag=None [('target_action', 'showTerminalAction:')]
+brief                            key=''         mask=None tag=2 [('target_action', 'switchViewAction:')]
+full screen                      key=''         mask=None tag=None [('target_action', 'toggleFullScreen:')]
+Select ...                       key=''         mask=None tag=None [('target_action', 'selectAction:')]
+Invert Selection                 key=''         mask=None tag=None [('target_action', 'invertSelectAction:')]
+New Tab                          key=''         mask=None tag=None [('target_action', 'newTabAction:')]
+System Applications              key=''         mask=None tag=None [('target_action', 'goSystemApplicationsAction:')]
+command line                     key=''         mask=None tag=None 
+Unselect ...                     key=''         mask=None tag=None [('target_action', 'unselectAction:')]
+New file                         key=''         mask=None tag=None [('target_action', 'newFileAction:')]
+added                            key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+Copy                             key=''         mask=None tag=None [('target_action', 'copyAction:')]
+full                             key=''         mask=None tag=1 [('target_action', 'switchViewAction:')]
+Select Previous Tab              key=''         mask=None tag=None [('target_action', 'selectPrevTabAction:')]
+created                          key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+ext                              key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+New window                       key=''         mask=None tag=None [('target_action', 'newWindowAction:')]
+Copy only name(s) to clipboard   key=''         mask=None tag=None [('target_action', 'copyFileNamesAction:')]
+Quick look                       key=''         mask=None tag=None [('target_action', 'switchQuicklLookPanel:')]
+Make alias                       key=''         mask=524288 tag=None [('target_action', 'makeAliasAction:')]
+search                           key=''         mask=None tag=1 [('target_action', 'searchAction:')]
+ascending                        key=''         mask=None tag=None [('target_action', 'changeSortOrderAction:')]
+Utilities                        key=''         mask=None tag=None [('target_action', 'goUtilitiesAction:')]
+target=source                    key=''         mask=None tag=None [('target_action', 'equalizePanelsAction:')]
+Copy only path(s) to clipboard   key=''         mask=None tag=None [('target_action', 'copyFilePathsAction:')]
+Edit                             key=''         mask=None tag=None [('target_action', 'editAction:')]
+Home                             key=''         mask=None tag=None [('target_action', 'goHomeAction:')]
+search in spotlight              key=''         mask=None tag=None [('target_action', 'searchAction:')]
+Documents                        key=''         mask=None tag=None [('target_action', 'goDocumentsAction:')]
+buttons                          key=''         mask=None tag=None 
+accessed                         key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+Unselect All                     key=''         mask=None tag=None [('target_action', 'unselectAllAction:')]
+kind                             key=''         mask=None tag=None [('target_action', 'changeSortKeyAction:')]
+Connect to Server...             key=''         mask=None tag=None [('target_action', 'connectToServerAction:')]
+descending                       key=''         mask=None tag=None [('target_action', 'changeSortOrderAction:')]
+Desktop                          key=''         mask=None tag=None [('target_action', 'goDesktopAction:')]
+Check For Updates                key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None [('target_action', 'goEmptyAction:')]
+Customize Toolbar…               key=''         mask=None tag=None [('target_action', 'runToolbarCustomizationPalette:')]
+Open                             key=''         mask=None tag=None [('target_action', 'openFile:')]
+Quit TCX                         key='q'        mask=1048576 tag=None [('target_action', 'terminate:')]
+Copy to Other Panel              key=''         mask=None tag=None [('target_action', 'copyToOtherPanelAction:')]
+About TCX                        key=''         mask=None tag=None [('target_action', 'showAboutController:')]
+sort by                          key=''         mask=None tag=None [('target_action', 'changeSortAction:')]
+                                 key=''         mask=None tag=None 
+Redo                             key='Z'        mask=1048576 tag=None [('target_action', 'redo:')]
+ShowReleaseNotes                 key=''         mask=None tag=None [('target_action', 'showReleaseNotes:')]
+Preferences…                     key=','        mask=1048576 tag=None [('target_action', 'preferences:')]
+Move                             key='v'        mask=1572864 tag=None [('target_action', 'pasteWithMove:')]
+Restart as current user          key=''         mask=None tag=None [('target_action', 'defaultRightsAction:')]
+Close                            key='w'        mask=1048576 tag=None [('target_action', 'performClose:')]
+open terminal                    key=''         mask=None tag=None [('target_action', 'openTerminalAction:')]
+TCX Help                         key='?'        mask=1048576 tag=None [('target_action', 'showHelpAction:')]
+Open With                        key=''         mask=None tag=None [('target_action', 'openWithAction:')]
+Item                             key=''         mask=None tag=None 
+Close Active Tab                 key=''         mask=None tag=None [('target_action', 'closeTabAction:')]
+Recent places                    key=''         mask=None tag=None [('target_action', 'historyMenuAction:')]
+Item                             key=''         mask=None tag=None 
+Restore Purchases                key=''         mask=None tag=None [('target_action', 'restorePurchasesAction:')]
+Show All                         key=''         mask=None tag=None [('target_action', 'unhideAllApplications:')]
+Bring All to Front               key=''         mask=None tag=None [('target_action', 'arrangeInFront:')]
+Upgrade                          key=''         mask=None tag=None [('target_action', 'purchaseAction:')]
+open activity monitor            key=''         mask=None tag=None [('target_action', 'openActivityMonitorAction:')]
+Minimize                         key='m'        mask=1048576 tag=None [('target_action', 'miniaturizeAction:')]
+Hide TCX                         key='h'        mask=1048576 tag=None [('target_action', 'hide:')]
+Welcome                          key=''         mask=None tag=None [('target_action', 'welcomeAction:')]
+Zoom                             key='\uf700'   mask=1179648 tag=None [('target_action', 'zoomAction:')]
+Library                          key=''         mask=524288 tag=None [('target_action', 'goLibraryAction:')]
+Hide Others                      key='h'        mask=1572864 tag=None [('target_action', 'hideOtherApplications:')]
+Purchase PRO                     key=''         mask=None tag=None [('target_action', 'purchaseInAppAction:')]
+Paste and Match Style            key='V'        mask=1572864 tag=None [('target_action', 'pasteAsPlainText:')]
+Send feedback                    key=''         mask=None tag=None [('target_action', 'sendFeedbackAction:')]
+Close All Tabs Except Active     key=''         mask=None tag=None [('target_action', 'closeOtherTabsAction:')]
+PRO Features                     key=''         mask=None tag=None [('target_action', 'proFeaturesAction:')]
+Contact Helpdesk                 key=''         mask=None tag=None [('target_action', 'contactHelpdeskAction:')]
+Undo                             key='z'        mask=1048576 tag=None [('target_action', 'undo:')]
+Paste                            key='v'        mask=1048576 tag=None [('target_action', 'paste:')]
+Select all with the same extention key=''         mask=None tag=None [('target_action', 'selectWithSameExtAction:')]
+Activate                         key=''         mask=None tag=None [('target_action', 'activate:')]
+columns                          key=''         mask=None tag=None [('target_action', 'visibleColumnsMenuAction:')]
+Delete                           key=''         mask=None tag=None [('target_action', 'delete:')]
+Show Toolbar                     key='t'        mask=1572864 tag=None [('target_action', 'toggleToolbarShown:')]
+Computer                         key=''         mask=None tag=None [('target_action', 'computerDrivesAction:')]
+Item                             key=''         mask=None tag=None 
+Close Window                     key=''         mask=None tag=None [('target_action', 'closeWindow:')]
+Recover Code                     key=''         mask=None tag=None [('target_action', 'recoverCodeAction:')]
+Cut                              key='x'        mask=1048576 tag=None [('target_action', 'cut:')]
+Home Page                        key=''         mask=None tag=None [('target_action', 'homePageAction:')]
+open system console              key=''         mask=None tag=None [('target_action', 'openSystemConsoleAction:')]
+open diskutility                 key=''         mask=None tag=None [('target_action', 'openDiskutilityAction:')]
+Copy                             key='c'        mask=1048576 tag=None [('target_action', 'copy:')]
+open network utility             key=''         mask=None tag=None [('target_action', 'openNetworkutilityAction:')]
+Restart as root                  key=''         mask=None tag=None [('target_action', 'rootRightsAction:')]
+Commander One                    key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+Services                         key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+File                             key=''         mask=None tag=None 
+Tabs                             key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+Edit                             key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+View                             key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+Command                          key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+Go                               key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+Window                           key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 
+Help                             key=''         mask=None tag=None 
+                                 key=''         mask=None tag=None 

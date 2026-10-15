@@ -1,0 +1,24 @@
+[package]
+name = "fc-core"
+description = "Platform logic for Ferrous Commander: listing, sorting, selection, keymap, file operations, search, archives."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+regex.workspace = true
+chrono.workspace = true
+libc.workspace = true
+dirs.workspace = true
+zip.workspace = true
+flate2.workspace = true
+tar.workspace = true
+trash.workspace = true
+
+[target.'cfg(target_os = "macos")'.dependencies]
+objc = "0.2.7"
+
+[dev-dependencies]
+tempfile.workspace = true
