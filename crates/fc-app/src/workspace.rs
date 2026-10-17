@@ -126,6 +126,8 @@ pub struct Workspace {
     /// Gliding cursor highlight per panel (row index, animated).
     pub cursor_spring: [crate::anim::Spring; 2],
     pub snap_cursor: [bool; 2],
+    /// Whether each panel's cursor was shown last frame (it snaps into place on appearing).
+    pub cursor_shown: [bool; 2],
     pub last_frame: Instant,
     pub last_offsets: [f32; 2],
     /// Bumped on every folder change (row fade-in animations key off it).
@@ -220,6 +222,7 @@ impl Workspace {
             size_cancel: Arc::new(AtomicBool::new(false)),
             cursor_spring: Default::default(),
             snap_cursor: [true, true],
+            cursor_shown: [false, false],
             last_frame: Instant::now(),
             last_offsets: [0.0, 0.0],
             nav_gen: [0, 0],
@@ -598,7 +601,7 @@ impl Workspace {
             UiNav::GoUp => self.run(Action::GoTop, window, cx),
             UiNav::ClearTypeAhead => {
                 if self.type_ahead.is_empty() {
-                    self.panels[side].tab_mut().unselect_all();
+                    self.panels[side].tab_mut().clear_selection();
                 }
                 self.type_ahead.clear();
                 cx.notify();
@@ -659,7 +662,7 @@ impl Workspace {
             tab.toggle_index(ix);
             tab.set_cursor(ix);
         } else if ev.modifiers.shift {
-            let from = tab.cursor;
+            let from = if tab.cursor_visible { tab.cursor } else { ix };
             tab.select_range(from, ix);
             tab.set_cursor(ix);
         } else {
@@ -686,7 +689,7 @@ impl Workspace {
         self.commit_rename(window, cx);
         self.activate_side(side, window, cx);
         if !ev.modifiers.platform && !ev.modifiers.shift {
-            self.panels[side].tab_mut().unselect_all();
+            self.panels[side].tab_mut().clear_selection();
         }
         self.begin_marquee(side, ev, window);
         cx.notify();
@@ -1736,7 +1739,7 @@ impl Workspace {
             }
             A::InvertSelect => self.tab_mut().invert_selection(files_only),
             A::SelectAll => self.tab_mut().select_all(files_only),
-            A::UnselectAll => self.tab_mut().unselect_all(),
+            A::UnselectAll => self.tab_mut().clear_selection(),
             A::GoBack | A::GoForward => {
                 let r = if action == A::GoBack { self.tab_mut().go_back(opts) } else { self.tab_mut().go_forward(opts) };
                 match r {

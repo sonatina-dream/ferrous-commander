@@ -354,12 +354,16 @@ async fn keyboard_phase(cx: &mut AsyncApp, left: &Path) -> Result<(), String> {
     eprintln!("smoke: keyboard phase");
     // Left sandbox is now in the right panel (after swap); focus it.
     let l = left.to_path_buf();
-    step(cx, "focus panels", move |ws, w, cx| {
+    let fresh = step(cx, "focus panels", move |ws, w, cx| {
         ws.activate_side(1, w, cx);
         ws.navigate(1, l, None, w, cx);
-        ws.panels[1].tab_mut().set_cursor(0);
+        ws.panels[1].tab().cursor_entry().is_none() && ws.panels[1].tab().targets().is_empty()
     })
     .await?;
+    check(fresh, "a folder just opened already has something selected")?;
+    keys(cx, &["down"]).await?;
+    let first = step(cx, "first arrow", |ws, _, _| (ws.panels[1].tab().cursor_visible, ws.panels[1].tab().cursor)).await?;
+    check(first == (true, 0), &format!("the first ↓ gave cursor {first:?}, not the first row"))?;
 
     keys(cx, &["down", "down"]).await?;
     let cursor = step(cx, "read cursor", |ws, _, _| ws.panels[1].tab().cursor).await?;
@@ -678,13 +682,13 @@ async fn mouse_phase(cx: &mut AsyncApp, left: &Path) -> Result<(), String> {
     // Clicking empty space under the rows clears the selection.
     let below = point(px(geo.x + 120.0), px(geo.y + (names.len() as f32 + 1.5) * geo.row));
     check(f32::from(below.y) < geo.y + geo.h, "no empty space under the rows")?;
-    let n = step(cx, "click on empty space", move |ws, w, cx| {
+    let (n, cursor) = step(cx, "click on empty space", move |ws, w, cx| {
         ws.background_mouse_down(0, &mouse_down(below), w, cx);
         ws.mouse_released(cx);
-        ws.panels[0].tab().selected.len()
+        (ws.panels[0].tab().selected.len(), ws.panels[0].tab().cursor_entry().map(|e| e.name.clone()))
     })
     .await?;
-    check(n == 0, &format!("clicking empty space left {n} item(s) selected"))?;
+    check(n == 0 && cursor.is_none(), &format!("clicking empty space left {n} item(s) marked and the cursor on {cursor:?}"))?;
 
     // A band dragged out from empty space selects what it crosses.
     let n = step(cx, "band from empty space", move |ws, w, cx| {

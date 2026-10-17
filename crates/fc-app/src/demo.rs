@@ -219,7 +219,6 @@ async fn tour(out: &Path, cx: &mut AsyncApp) -> Result<(), String> {
         ws.navigate(1, photos, None, w, cx);
         for side in 0..2 {
             ws.panels[side].tab_mut().view_mode = ViewMode::Full;
-            ws.panels[side].tab_mut().set_cursor(0);
         }
         ws.activate_side(0, w, cx);
         capture::window_number(w)

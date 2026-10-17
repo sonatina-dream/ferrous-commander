@@ -133,7 +133,13 @@ impl Workspace {
         self.last_frame = now;
         let mut moving = false;
         for side in 0..2 {
-            let target = self.panels[side].tab().cursor as f32;
+            let tab = self.panels[side].tab();
+            let target = tab.cursor as f32;
+            // A cursor that just appeared starts where it is instead of gliding in.
+            if tab.cursor_visible != self.cursor_shown[side] {
+                self.cursor_shown[side] = tab.cursor_visible;
+                self.snap_cursor[side] = true;
+            }
             let spring = &mut self.cursor_spring[side];
             if self.snap_cursor[side] || (target - spring.value).abs() > 40.0 {
                 spring.snap(target);
@@ -719,7 +725,7 @@ impl Workspace {
             let tab = self.panels[side].tab();
             let Some(e) = tab.entries.get(ix).cloned() else { continue };
             let marked = tab.is_selected(&e);
-            let on_pill = ix == tab.cursor && active_panel;
+            let on_pill = tab.cursor_visible && ix == tab.cursor && active_panel;
             let kind = look::kind_of(&e);
             let fg = if on_pill { c.cursor_text } else if marked { c.mark_text } else { c.text };
             let meta = if on_pill { c.cursor_text.opacity(0.78) } else { c.muted };
@@ -912,7 +918,7 @@ impl Workspace {
                 let tab = self.panels[side].tab();
                 let e = tab.entries[ix].clone();
                 let marked = tab.is_selected(&e);
-                let is_cursor = ix == tab.cursor;
+                let is_cursor = tab.cursor_visible && ix == tab.cursor;
                 let on_pill = is_cursor && active_panel;
                 let fg = if on_pill { c.cursor_text } else if marked { c.mark_text } else { c.text };
                 let editor = self.rename_field(side, &e.path, &c);
@@ -982,7 +988,7 @@ impl Workspace {
                 let tab = self.panels[side].tab();
                 let e = tab.entries[ix].clone();
                 let marked = tab.is_selected(&e);
-                let is_cursor = ix == tab.cursor;
+                let is_cursor = tab.cursor_visible && ix == tab.cursor;
                 let on_pill = is_cursor && active_panel;
                 let kind = look::kind_of(&e);
                 let picture: AnyElement = if is_image(&e.path) {
@@ -1080,7 +1086,7 @@ impl Workspace {
 
         // The gliding cursor (Full mode): drawn behind the rows, positioned from the spring
         // and the list's scroll offset.
-        let pill = (mode == ViewMode::Full && n > 0).then(|| {
+        let pill = (mode == ViewMode::Full && n > 0 && self.panels[side].tab().cursor_visible).then(|| {
             let offset: f32 = self.scroll[side].0.borrow().base_handle.offset().y.into();
             let top = self.cursor_spring[side].value * row_h + offset;
             div()
