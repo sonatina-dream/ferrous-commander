@@ -1,0 +1,72 @@
+# DaisyDisk 4.34.2 - menu items wired to actions (en.lproj MainMenu.nib, ReportPageView.nib)
+# Source: rea decode-interface-builder. Columns: nib | title | key equivalent | action selector
+
+MainMenu.nib | Scan Folder… | cmd-o | scanFolder:
+MainMenu.nib | Rescan Current Folder | cmd-r | rescanCurrentFolder:
+MainMenu.nib | Rescan | cmd-shift-r | rescanSourceAsLastTime:
+MainMenu.nib | Rescan as Administrator |  | rescanSourceAsAdmin:
+MainMenu.nib | Rescan as Normal User |  | rescanSourceAsNormalUser:
+MainMenu.nib | Move All Items from Current Folder to Collector |  | moveAllToCollector:
+MainMenu.nib | Remove All Items From Collector |  | removeAllFromCollector:
+MainMenu.nib | Delete Collected Items |  | deleteCollected:
+MainMenu.nib | Show Current Folder in Finder |  | showInFinder:
+MainMenu.nib | Open Current Folder in Terminal |  | openInTerminal:
+MainMenu.nib | Launch Disk Utility… |  | launchDiskUtility:
+MainMenu.nib | Check for Updates… |  | checkForUpdates:
+MainMenu.nib | Tweak Parameters | cmd-d | tweakParameters:
+MainMenu.nib | Get Disks Descriptions |  | getDisksDescriptions:
+MainMenu.nib | Get Startup Disk Summary |  | getStartupDiskSummary:
+MainMenu.nib | Test Purgeable Space |  | testPurgeableSpace:
+MainMenu.nib | Reset Sandbox Access |  | resetSandboxAccess:
+MainMenu.nib | Emulate Scanning Error | cmd-e | emulateScanningError:
+MainMenu.nib | Print Sunburst… |  | makeScreenshot:
+MainMenu.nib | Make Miniature |  | makeMiniature:
+MainMenu.nib | Show Callouts |  | showCallouts:
+MainMenu.nib | Hide Callouts |  | hideCallouts:
+MainMenu.nib | Toggle Source Header |  | toggleSourceHeader:
+MainMenu.nib | Toggle Source Footer |  | toggleSourceFooter:
+MainMenu.nib | Buy Now |  | purchaseLicense:
+MainMenu.nib | Registration… |  | registerLicense:
+MainMenu.nib | Enter Full Screen / Exit Full Screen | cmd-ctrl-f | toggleFullScreen:
+MainMenu.nib | Enclosing Folder | cmd-up | goUp:
+MainMenu.nib | About DaisyDisk |  | showAbout:
+MainMenu.nib | DaisyDisk Help | cmd-? | showHelp:
+MainMenu.nib | Settings… | cmd-, | showPreferences:
+MainMenu.nib | Hide DaisyDisk | cmd-h | hide:
+MainMenu.nib | Quit DaisyDisk | cmd-q | terminate:
+MainMenu.nib | Hide Others | cmd-alt-h | hideOtherApplications:
+MainMenu.nib | Show All |  | unhideAllApplications:
+MainMenu.nib | Back to Disks and Folders | cmd-shift-up | showSourcePage:
+MainMenu.nib | Back | cmd-[ | goBack:
+MainMenu.nib | Forward | cmd-] | goForward:
+MainMenu.nib | Provide Feedback on DaisyDisk… |  | provideFeedback:
+MainMenu.nib | Support… |  | requestSupport:
+MainMenu.nib | Undo | cmd-z | undo:
+MainMenu.nib | Redo | cmd-shift-z | redo:
+MainMenu.nib | Cut | cmd-x | cut:
+MainMenu.nib | Copy | cmd-c | copy:
+MainMenu.nib | Paste | cmd-v | paste:
+MainMenu.nib | Delete |  | delete:
+MainMenu.nib | Select All | cmd-a | selectAll:
+MainMenu.nib | Minimize | cmd-m | miniaturize:
+MainMenu.nib | Zoom |  | performZoom:
+MainMenu.nib | Bring All to Front |  | arrangeInFront:
+MainMenu.nib | Close | cmd-w | close:
+MainMenu.nib | Visit DaisyDisk Website… |  | openProductHomePage:
+MainMenu.nib | Expand “smaller objects” |  | expandSmallerObjects:
+MainMenu.nib | Always Expand “smaller objects” |  | alwaysExpandSmallerObjects:
+MainMenu.nib | Privacy Policy |  | openProductPrivacyPolicy:
+MainMenu.nib | Terms of Use |  | openProductTermsOfUse:
+ReportPageView.nib | Print Count of Objects |  | printCountOfObjects:
+ReportPageView.nib | Print All Hard Links |  | printAllHardLinks:
+ReportPageView.nib | Go to Enclosing Folder | cmd-up | goUp:
+ReportPageView.nib | Expand “%@” |  | expandItem:
+ReportPageView.nib | Rescan as Administrator to Reveal Hidden Space |  | rescanSourceAsAdmin:
+ReportPageView.nib | Show Package Contents |  | showPackageContents:
+ReportPageView.nib | Preview | space | previewPointedItem:
+ReportPageView.nib | Show in Finder |  | showInFinder:
+ReportPageView.nib | Open in Terminal |  | openInTerminal:
+ReportPageView.nib | Move “%@” to Collector | cmd-backspace | moveToCollector:
+ReportPageView.nib | More Info |  | showMoreInfoForItem:
+ReportPageView.nib | Rescan Current Folder | cmd-r | rescanCurrentFolder:
+ReportPageView.nib | Remove “%@” from Collector | cmd-backspace | removeFromCollector:

@@ -4,7 +4,9 @@
 //! the `fc-app` crate and only translates input and state into views.
 
 pub mod archive;
+pub mod diskmap;
 pub mod entry;
+pub mod fileicon;
 pub mod format;
 pub mod fuzzy;
 pub mod keymap;
