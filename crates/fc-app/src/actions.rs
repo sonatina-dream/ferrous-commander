@@ -62,13 +62,13 @@ bridge!(
     GoHome, GoDesktop, GoDocuments, GoDownloads, GoApplications, GoSystemApplications,
     GoUtilities, GoFolder, GoServer, ReloadContent, ChangeDriveLeft, ChangeDriveRight,
     ShowFavorites, ShowFTP, Eject, SwitchPanel, NewTab, CloneTab, CloseTab, NextTab, PrevTab,
-    ToggleTabLock, SwapPanels, EqualizePanels, NewWindow, SelectItem, SelectItemWithSize,
+    ToggleTabLock, SwapPanels, EqualizePanels, ToggleRightPanel, NewWindow, SelectItem, SelectItemWithSize,
     Select, Unselect, InvertSelect, SelectAll, UnselectAll, ViewModeFull, ViewModeBrief,
     ViewModeThumbs, SortByName, SortByExtension, SortBySize, SortByDate, SortByCreated,
     SortByAdded, SortByAccessed, SortByKind, SortByPermissions, SortAscending, SortDescending,
     ToggleHidden, FullScreen, ToggleButtons, ToggleCommandLine, ToggleDiskList, ToggleDiskInfo,
     TogglePathBar, ToggleSelectionInfo, ShowQueue, Search, SearchSpotlight, ShowTerminal,
-    CopyItemName, CopyItemPath, PasteItemName, PasteItemPath, Preferences,
+    OpenTerminalApp, CopyItemName, CopyItemPath, PasteItemName, PasteItemPath, Preferences,
 );
 
 /// Fixed (non-remappable) UI actions.
@@ -82,6 +82,7 @@ pub mod ui {
             FocusPanels, Quit, CloseWindow, Minimize, Zoom, Hide, HideOthers, ShowAll, About,
             ShowHotkeys, ImportCommanderOneKeymap, ResetKeymap, RevealConfig, CloseViewer,
             ViewerText, ViewerHex, ViewerFind, ViewerFindNext, MenuUp, MenuDown, OpenPalette,
+            ToggleTerminal,
         ]
     );
 }

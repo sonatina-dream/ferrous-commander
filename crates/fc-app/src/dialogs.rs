@@ -49,7 +49,6 @@ const fn libc_uf_immutable() -> u32 {
 
 pub enum Dialog {
     Transfer { kind: TransferKind, sources: Vec<PathBuf>, base_dir: PathBuf, input: Entity<TextInput>, enqueue: bool },
-    Rename { path: PathBuf, input: Entity<TextInput> },
     ConfirmRenameExt { path: PathBuf, new_name: String },
     Delete { paths: Vec<PathBuf>, permanent: bool, nonempty_dirs: usize },
     NewFolder { dir: PathBuf, input: Entity<TextInput>, with: Vec<PathBuf> },
@@ -70,7 +69,6 @@ impl Dialog {
     pub fn input(&self) -> Option<Entity<TextInput>> {
         match self {
             Dialog::Transfer { input, .. }
-            | Dialog::Rename { input, .. }
             | Dialog::NewFolder { input, .. }
             | Dialog::NewFile { input, .. }
             | Dialog::Pattern { input, .. }
@@ -235,10 +233,6 @@ pub fn render(ws: &mut Workspace, window: &mut Window, cx: &mut Context<Workspac
                     }, cx),
                 ]))
         }
-        Dialog::Rename { path, input } => card(icons::PEN, c.accent, format!("Rename \"{}\"", name_of(path)), &c)
-            .child(input.clone())
-            .child(div().text_size(px(12.)).text_color(c.muted).child("Type a new name, or a path to move the item."))
-            .child(buttons_row(vec![cancel(cx, &c), ok("Rename", Btn::Primary, cx, &c)])),
         Dialog::ConfirmRenameExt { path, new_name } => {
             let old_name = name_of(path);
             let (_, a) = fc_core::entry::split_extension(&old_name);

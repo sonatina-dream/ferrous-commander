@@ -32,7 +32,12 @@ impl Global for AppState {}
 
 impl AppState {
     pub fn load() -> AppState {
-        let config_dir = settings::config_dir();
+        // The smoke run changes settings; keep it away from the user's own unless asked.
+        let config_dir = if std::env::var_os("FC_SMOKE").is_some() && std::env::var_os("FC_CONFIG_DIR").is_none() {
+            std::env::temp_dir().join(format!("fc-smoke-config-{}", std::process::id()))
+        } else {
+            settings::config_dir()
+        };
         AppState {
             settings: Settings::load_from(&config_dir),
             keymap: settings::load_keymap(&config_dir),
@@ -132,6 +137,11 @@ pub fn install_key_bindings(cx: &mut App) {
         KeyBinding::new("up", ui::HistoryPrev, Some("CommandLine")),
         KeyBinding::new("down", ui::HistoryNext, Some("CommandLine")),
         KeyBinding::new("tab", ui::FocusPanels, Some("CommandLine")),
+        // Renaming in place.
+        KeyBinding::new("enter", ui::Confirm, Some("RenameInput")),
+        KeyBinding::new("escape", ui::Cancel, Some("RenameInput")),
+        // Embedded terminal (also ⌃O from the panels, via the key map).
+        KeyBinding::new("ctrl-`", ui::ToggleTerminal, Some("Workspace")),
         // Viewer window.
         KeyBinding::new("escape", ui::CloseViewer, Some("Viewer")),
         KeyBinding::new("f3", ui::CloseViewer, Some("Viewer")),
@@ -223,7 +233,7 @@ pub fn install_menus(cx: &mut App) {
                 v.extend(items(&[
                     None, Some(A::ToggleHidden), None,
                     Some(A::ToggleButtons), Some(A::ToggleCommandLine), Some(A::ToggleDiskList), Some(A::ToggleDiskInfo),
-                    Some(A::TogglePathBar), Some(A::ToggleSelectionInfo), None,
+                    Some(A::TogglePathBar), Some(A::ToggleSelectionInfo), Some(A::ToggleRightPanel), None,
                     Some(A::ReloadContent), Some(A::FullScreen),
                 ]));
                 v
@@ -242,7 +252,7 @@ pub fn install_menus(cx: &mut App) {
         Menu {
             name: "Commands".into(),
             items: std::iter::once(MenuItem::action("Command Palette…", ui::OpenPalette)).chain(items(&[
-                Some(A::Search), Some(A::SearchSpotlight), Some(A::ShowTerminal), None,
+                Some(A::Search), Some(A::SearchSpotlight), Some(A::ShowTerminal), Some(A::OpenTerminalApp), None,
                 Some(A::SwitchPanel), Some(A::SwapPanels), Some(A::EqualizePanels), None,
                 Some(A::CloneTab), Some(A::NextTab), Some(A::PrevTab), Some(A::ToggleTabLock), None,
                 Some(A::ShowQueue), Some(A::ShowFTP),

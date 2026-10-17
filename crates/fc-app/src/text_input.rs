@@ -22,6 +22,8 @@ pub struct TextInput {
     /// Draw without a box (for fields embedded in larger chrome).
     bare: bool,
     font_size: f32,
+    /// Height of a bare field; defaults to the font size plus padding.
+    height: Option<f32>,
 }
 
 /// Emitted after every edit.
@@ -42,6 +44,7 @@ impl TextInput {
             monospace: false,
             bare: false,
             font_size: 13.0,
+            height: None,
         }
     }
 
@@ -52,6 +55,11 @@ impl TextInput {
 
     pub fn text_size(mut self, size: f32) -> Self {
         self.font_size = size;
+        self
+    }
+
+    pub fn height(mut self, height: f32) -> Self {
+        self.height = Some(height);
         self
     }
 
@@ -353,7 +361,7 @@ impl Render for TextInput {
             .when(self.monospace, |d| d.font_family("Menlo"))
             .cursor_text();
         let field = if self.bare {
-            field.h(px(self.font_size + 14.)).w_full()
+            field.h(px(self.height.unwrap_or(self.font_size + 14.))).w_full()
         } else {
             field
                 .h(px(32.))

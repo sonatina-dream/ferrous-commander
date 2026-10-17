@@ -268,6 +268,7 @@ impl PrefsView {
                 section("Files", c)
                     .child(checkbox("v-hidden", "Show hidden files", s.view.show_hidden, c, cx, |s| s.view.show_hidden = !s.view.show_hidden))
                     .child(checkbox("v-top", "Show folders on top", s.view.folders_on_top, c, cx, |s| s.view.folders_on_top = !s.view.folders_on_top))
+                    .child(checkbox("v-parent", "Show the \"..\" row to go up a folder", s.view.show_parent_entry, c, cx, |s| s.view.show_parent_entry = !s.view.show_parent_entry))
                     .child(checkbox("v-tabs", "Always show the tab bar", s.view.always_show_tab_bar, c, cx, |s| s.view.always_show_tab_bar = !s.view.always_show_tab_bar))
                     .child(row("Size in columns", segmented("size-col", &sizes, s.view.size_in_columns, c, cx, |s, v| s.view.size_in_columns = v), c))
                     .child(row("Size in header/footer", segmented("size-foot", &sizes, s.view.size_in_footer, c, cx, |s, v| s.view.size_in_footer = v), c))
@@ -279,6 +280,7 @@ impl PrefsView {
             )
             .child(
                 section("Window", c)
+                    .child(checkbox("v-right", "Right panel (two panels side by side)", s.view.show_right_panel, c, cx, |s| s.view.show_right_panel = !s.view.show_right_panel))
                     .child(checkbox("v-toolbar", "Toolbar", s.view.show_toolbar, c, cx, |s| s.view.show_toolbar = !s.view.show_toolbar))
                     .child(checkbox("v-disklist", "Drive bar (disk list)", s.view.show_disk_list, c, cx, |s| s.view.show_disk_list = !s.view.show_disk_list))
                     .child(checkbox("v-diskinfo", "Free space (disk info)", s.view.show_disk_info, c, cx, |s| s.view.show_disk_info = !s.view.show_disk_info))
