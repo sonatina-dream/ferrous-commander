@@ -195,7 +195,7 @@ fn kind_for_extension(ext: &str) -> Option<&'static str> {
     })
 }
 
-fn is_package_dir(name: &str) -> bool {
+pub(crate) fn is_package_dir(name: &str) -> bool {
     let ext = split_extension(name).1;
     !ext.is_empty() && PACKAGE_EXTENSIONS.iter().any(|p| p.eq_ignore_ascii_case(ext))
 }

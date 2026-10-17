@@ -252,7 +252,7 @@ pub fn install_menus(cx: &mut App) {
         Menu {
             name: "Commands".into(),
             items: std::iter::once(MenuItem::action("Command Palette…", ui::OpenPalette)).chain(items(&[
-                Some(A::Search), Some(A::SearchSpotlight), Some(A::ShowTerminal), Some(A::OpenTerminalApp), None,
+                Some(A::Search), Some(A::SearchSpotlight), Some(A::DiskMap), Some(A::ShowTerminal), Some(A::OpenTerminalApp), None,
                 Some(A::SwitchPanel), Some(A::SwapPanels), Some(A::EqualizePanels), None,
                 Some(A::CloneTab), Some(A::NextTab), Some(A::PrevTab), Some(A::ToggleTabLock), None,
                 Some(A::ShowQueue), Some(A::ShowFTP),

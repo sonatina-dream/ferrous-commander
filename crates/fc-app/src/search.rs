@@ -272,11 +272,13 @@ impl SearchView {
                         .px(px(10.))
                         .when(selected, |d| d.bg(c.cursor).text_color(c.cursor_text))
                         .when(!selected && ix % 2 == 1, |d| d.bg(c.alt_bg))
-                        .child(crate::look::file_tile(
+                        .child(crate::look::entry_tile(
+                            p,
                             fc_core::entry::read_entry(p).map(|e| crate::look::kind_of(&e)).unwrap_or(crate::look::FileKind::Other),
                             18.,
                             &c,
                             selected,
+                            cx,
                         ))
                         .child(div().flex_1().min_w(px(0.)).overflow_hidden().text_ellipsis().whitespace_nowrap().child(rel))
                         .on_mouse_down(MouseButton::Left, cx.listener(move |this, ev: &MouseDownEvent, _w, cx| {

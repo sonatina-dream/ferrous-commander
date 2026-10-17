@@ -68,7 +68,7 @@ bridge!(
     SortByAdded, SortByAccessed, SortByKind, SortByPermissions, SortAscending, SortDescending,
     ToggleHidden, FullScreen, ToggleButtons, ToggleCommandLine, ToggleDiskList, ToggleDiskInfo,
     TogglePathBar, ToggleSelectionInfo, ShowQueue, Search, SearchSpotlight, ShowTerminal,
-    OpenTerminalApp, CopyItemName, CopyItemPath, PasteItemName, PasteItemPath, Preferences,
+    OpenTerminalApp, DiskMap, CopyItemName, CopyItemPath, PasteItemName, PasteItemPath, Preferences,
 );
 
 /// Fixed (non-remappable) UI actions.

@@ -1,6 +1,8 @@
 //! Shared visual language: file-type tiles, keycaps, chips, buttons and shadows.
 
-use gpui::{div, point, prelude::*, px, svg, BoxShadow, Div, Hsla, SharedString, Stateful, Svg};
+use std::path::Path;
+
+use gpui::{div, img, point, prelude::*, px, svg, App, BoxShadow, Div, Hsla, SharedString, Stateful, Svg};
 
 use fc_core::keymap::Action;
 use fc_core::{Entry, EntryKind};
@@ -35,7 +37,12 @@ pub fn kind_of(e: &Entry) -> FileKind {
         EntryKind::Dir => return FileKind::Folder,
         EntryKind::File => {}
     }
-    match e.extension().to_ascii_lowercase().as_str() {
+    kind_for_extension(e.extension(), e.is_executable())
+}
+
+/// Visual category of a regular file from its extension.
+pub fn kind_for_extension(ext: &str, executable: bool) -> FileKind {
+    match ext.to_ascii_lowercase().as_str() {
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "heic" | "heif" | "tif" | "tiff" | "bmp" | "svg" | "ico" | "icns" | "psd" | "raw" => FileKind::Image,
         "mp3" | "m4a" | "aac" | "wav" | "aiff" | "flac" | "ogg" | "mp4" | "m4v" | "mov" | "mkv" | "avi" | "webm" => FileKind::Media,
         "zip" | "gz" | "tgz" | "tar" | "bz2" | "xz" | "7z" | "rar" | "dmg" | "iso" | "pkg" => FileKind::Archive,
@@ -43,7 +50,7 @@ pub fn kind_of(e: &Entry) -> FileKind {
         "txt" | "md" | "markdown" | "rtf" | "doc" | "docx" | "pages" | "csv" | "log" | "xls" | "xlsx" | "key" | "ppt" | "pptx" => FileKind::Doc,
         "rs" | "swift" | "c" | "h" | "cpp" | "hpp" | "cc" | "m" | "mm" | "py" | "rb" | "go" | "java" | "kt" | "js" | "mjs" | "ts" | "tsx" | "jsx"
         | "json" | "toml" | "yaml" | "yml" | "xml" | "html" | "css" | "scss" | "sh" | "zsh" | "bash" | "plist" | "lock" | "sql" | "lua" => FileKind::Code,
-        _ if e.is_executable() => FileKind::Exec,
+        _ if executable => FileKind::Exec,
         _ => FileKind::Other,
     }
 }
@@ -107,6 +114,23 @@ pub fn file_tile(kind: FileKind, size: f32, c: &Colors, on_cursor: bool) -> Div 
         .items_center()
         .justify_center()
         .child(icon(kind.icon(), (size * 0.62).round(), fg))
+}
+
+/// The file-type tile, or for applications (and links to them) the app's real icon once it
+/// has loaded.
+pub fn entry_tile(path: &Path, kind: FileKind, size: f32, c: &Colors, on_cursor: bool, cx: &mut App) -> Div {
+    let is_app_link = kind == FileKind::Link && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("app"));
+    if kind == FileKind::App || is_app_link {
+        // A link (such as Safari in /Applications) shows its target's icon, without Finder's
+        // alias arrow.
+        let source = if is_app_link { std::fs::canonicalize(path).ok().filter(|p| p.is_dir()) } else { Some(path.to_path_buf()) };
+        if let Some(icon) = source.and_then(|p| crate::fileicons::app_icon(&p, cx)) {
+            // App icons carry their own transparent margin; draw them a little larger than a
+            // tile so they look the same size.
+            return div().size(px(size)).flex_none().flex().items_center().justify_center().child(img(icon).flex_none().size(px((size * 1.18).round())));
+        }
+    }
+    file_tile(kind, size, c, on_cursor)
 }
 
 /// Small key label, e.g. "F5" or "⌘P".
@@ -226,6 +250,7 @@ pub fn action_icon(a: Action) -> &'static str {
         A::ToggleDiskList => icons::SIDEBAR,
         A::ToggleRightPanel => icons::COLUMNS,
         A::ShowQueue => icons::QUEUE,
+        A::DiskMap => icons::SUNBURST,
         A::Preferences => icons::GEAR,
         A::MakeLink | A::MakeAlias => icons::LINK,
         A::ToggleTabLock => icons::LOCK,

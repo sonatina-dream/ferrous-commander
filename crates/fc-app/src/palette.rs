@@ -44,6 +44,7 @@ const HIDDEN: &[Action] = &[Action::OpenItem, Action::EnterItem, Action::SelectI
 const FEATURED: &[Action] = &[
     Action::NewFolder,
     Action::Search,
+    Action::DiskMap,
     Action::Copy,
     Action::Move,
     Action::ToggleHidden,

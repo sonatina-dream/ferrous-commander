@@ -10,6 +10,8 @@ mod capture;
 mod demo;
 mod colors;
 mod dialogs;
+mod diskmap;
+mod fileicons;
 mod icons;
 mod look;
 mod marquee;
