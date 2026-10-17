@@ -140,6 +140,9 @@ The interface ("Aurora") is built entirely with GPUI:
 - **Drag and drop.** Drag items by their icon or name. Dropped on a folder they move there
   (copied when the folder is on another volume; hold ⌥ to copy, ⌘ to move). Dropped on the
   other panel they are copied (hold ⌘ to move). Files dragged in from Finder are copied.
+  Drag files out of the window to hand them to another app, as from Finder: drop them on a
+  browser to upload them, into Mail to attach them, or on the Desktop. Other apps always get
+  a copy; the originals stay where they are.
 - **Disk Map (⇧⌘M).** See where the space went and clean it up, in a separate window (see
   [below](#disk-map)).
 - **Keyboard compatibility.** The default key map is the one observed in Commander One:

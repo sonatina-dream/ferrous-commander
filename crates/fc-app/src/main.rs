@@ -11,6 +11,7 @@ mod demo;
 mod colors;
 mod dialogs;
 mod diskmap;
+mod dragout;
 mod fileicons;
 mod icons;
 mod look;
