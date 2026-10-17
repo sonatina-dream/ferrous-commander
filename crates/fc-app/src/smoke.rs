@@ -14,6 +14,7 @@ use fc_core::ops::ConflictChoice;
 use fc_core::ViewMode;
 
 use crate::dialogs::Dialog;
+use crate::diskmap::{DiskMap, Page};
 use crate::state::AppState;
 use crate::workspace::Workspace;
 
@@ -325,6 +326,11 @@ async fn script(cx: &mut AsyncApp) -> Result<(), String> {
     panels_phase(cx).await?;
     terminal_phase(cx, &left).await?;
     layout_phase(cx).await?;
+    diskmap_phase(cx, &base).await?;
+    diskmap_click_phase(cx).await?;
+    fast_scroll_phase(cx, &base).await?;
+    app_icons_phase(cx).await?;
+    drag_phase(cx, &base).await?;
 
     let windows = cx.update(|cx| cx.windows().len()).map_err(|e| e.to_string())?;
     eprintln!("smoke: {windows} window(s) open");
@@ -972,5 +978,265 @@ async fn layout_phase(cx: &mut AsyncApp) -> Result<(), String> {
     pause(cx, 500).await;
     inside(cx, "search.feed", "search.root", "search at 560x420")?;
     let _ = search.update(cx, |_, window, _| window.remove_window());
+    Ok(())
+}
+
+/// Saves a screenshot of the Disk Map window when `FC_SMOKE_SHOTS` is set.
+async fn diskmap_shot(cx: &mut AsyncApp, dm: WindowHandle<DiskMap>, name: &str) {
+    let Some(dir) = std::env::var_os("FC_SMOKE_SHOTS").map(PathBuf::from) else { return };
+    pause(cx, 450).await;
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join(format!("{name}.png"));
+    #[cfg(target_os = "macos")]
+    let _ = dm.update(cx, |_, window, _| {
+        if let Some(frame) = crate::capture::window_number(window).and_then(|id| crate::capture::capture(id, true)) {
+            frame.save_png(&path);
+        }
+    });
+    eprintln!("smoke:   screenshot {}", path.display());
+}
+
+/// Disk Map (SPEC-DiskMap.md §11): open from the command, scan a folder, drill down and
+/// up, collect a file, delete it, and close the window.
+async fn diskmap_phase(cx: &mut AsyncApp, base: &Path) -> Result<(), String> {
+    let root = base.join("diskmap");
+    for (rel, bytes) in [("big.bin", 300_000), ("docs/a.txt", 60_000), ("docs/b.txt", 20_000), ("junk/old.bin", 150_000), ("junk/older.bin", 90_000)] {
+        let p = root.join(rel);
+        std::fs::create_dir_all(p.parent().unwrap()).map_err(|e| e.to_string())?;
+        std::fs::write(&p, vec![1u8; bytes]).map_err(|e| e.to_string())?;
+    }
+    step(cx, "open disk map", |ws, w, cx| ws.run(Action::DiskMap, w, cx)).await?;
+    pause(cx, 300).await;
+    let dm = cx
+        .update(|cx| cx.windows().into_iter().find_map(|w| w.downcast::<DiskMap>()))
+        .map_err(|e| e.to_string())?
+        .ok_or("disk map window did not open")?;
+    let err = |e: anyhow::Error| e.to_string();
+    let scan_root = root.clone();
+    dm.update(cx, |d, _, cx| d.start_scan(scan_root, cx)).map_err(err)?;
+    let mut done = false;
+    for _ in 0..100 {
+        pause(cx, 100).await;
+        if dm.update(cx, |d, _, _| d.page() == Page::Map).map_err(err)? {
+            done = true;
+            break;
+        }
+    }
+    check(done, "disk map scan did not finish")?;
+    let (items, junk, old) = dm
+        .update(cx, |d, _, _| {
+            let t = d.tree().expect("a finished scan has a tree");
+            (t.root().items, t.find(&t.root_path().join("junk")), t.find(&t.root_path().join("junk/old.bin")))
+        })
+        .map_err(err)?;
+    check(items == 5, &format!("disk map counted {items} files"))?;
+    let (junk, old) = (junk.ok_or("junk folder missing from the tree")?, old.ok_or("junk/old.bin missing from the tree")?);
+    diskmap_shot(cx, dm, "19-disk-map").await;
+
+    dm.update(cx, |d, _, cx| d.open_folder(junk, cx)).map_err(err)?;
+    pause(cx, 400).await;
+    check(dm.update(cx, |d, _, _| d.current()).map_err(err)? == junk, "drilling into junk failed")?;
+    dm.update(cx, |d, _, cx| d.go_up(cx)).map_err(err)?;
+    pause(cx, 400).await;
+    check(dm.update(cx, |d, _, _| d.current()).map_err(err)? == fc_core::diskmap::ROOT, "going up failed")?;
+
+    let refused = dm.update(cx, |d, _, cx| d.collect(fc_core::diskmap::ROOT, cx)).map_err(err)?;
+    check(!refused, "the scan root was collected")?;
+    let before = dm.update(cx, |d, _, cx| {
+        let size = d.tree().map(|t| t.root().size).unwrap_or(0);
+        d.collect(old, cx);
+        size
+    }).map_err(err)?;
+    check(dm.update(cx, |d, _, _| d.tree().map(|t| t.collected().len())).map_err(err)? == Some(1), "collecting failed")?;
+    diskmap_shot(cx, dm, "20-disk-map-collector").await;
+    dm.update(cx, |d, _, cx| d.delete_collected_now(true, cx)).map_err(err)?;
+    let mut idle = false;
+    for _ in 0..50 {
+        pause(cx, 100).await;
+        if !dm.update(cx, |d, _, _| d.is_busy()).map_err(err)? {
+            idle = true;
+            break;
+        }
+    }
+    check(idle, "disk map deletion did not finish")?;
+    check(!exists(&root.join("junk/old.bin")), "collected file was not deleted")?;
+    let (gone, after) = dm
+        .update(cx, |d, _, _| {
+            let t = d.tree().expect("tree");
+            (t.find(&t.root_path().join("junk/old.bin")).is_none(), t.root().size)
+        })
+        .map_err(err)?;
+    check(gone && after < before, "the deleted file is still in the tree")?;
+    let _ = dm.update(cx, |_, window, _| window.remove_window());
+    Ok(())
+}
+
+/// Posts a real mouse event to a window (macOS event queue, then AppKit, then GPUI).
+#[cfg(target_os = "macos")]
+fn post(cx: &mut AsyncApp, window: gpui::AnyWindowHandle, kind: crate::capture::MouseKind, at: gpui::Point<gpui::Pixels>) -> Result<(), String> {
+    let ok = window.update(cx, |_, window, _| crate::capture::post_mouse(window, kind, at, 1)).map_err(|e| e.to_string())?;
+    check(ok, "could not post a mouse event")
+}
+
+/// One click on a Disk Map "Scan" row starts the scan (it used to need several).
+#[cfg(target_os = "macos")]
+async fn diskmap_click_phase(cx: &mut AsyncApp) -> Result<(), String> {
+    use crate::capture::MouseKind;
+    step(cx, "open disk map for a click", |ws, w, cx| ws.run(Action::DiskMap, w, cx)).await?;
+    pause(cx, 500).await;
+    let dm = cx
+        .update(|cx| cx.windows().into_iter().find_map(|w| w.downcast::<DiskMap>()))
+        .map_err(|e| e.to_string())?
+        .ok_or("disk map window did not open")?;
+    pause(cx, 300).await;
+    let at = probe(cx, "diskmap.dm-this")?.center();
+    let any: gpui::AnyWindowHandle = dm.into();
+    for case in ["just opened", "main window in front"] {
+        dm.update(cx, |d, _, cx| d.show_start_page(cx)).map_err(|e| e.to_string())?;
+        if case == "main window in front" {
+            // The first click on an inactive window: macOS delivers it without a move first.
+            step(cx, "bring the main window forward", |_, w, _| w.activate_window()).await?;
+            pause(cx, 400).await;
+        } else {
+            post(cx, any, MouseKind::Move, at)?;
+            pause(cx, 80).await;
+        }
+        post(cx, any, MouseKind::LeftDown, at)?;
+        pause(cx, 90).await;
+        post(cx, any, MouseKind::LeftUp, at)?;
+        pause(cx, 400).await;
+        let page = dm.update(cx, |d, _, _| d.page()).map_err(|e| e.to_string())?;
+        eprintln!("smoke:   one click on “This folder” ({case}) → {page:?}");
+        check(page != Page::Start, &format!("one click on a Scan row did not start a scan ({case})"))?;
+        pause(cx, 300).await;
+    }
+    let _ = dm.update(cx, |_, window, _| window.remove_window());
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn diskmap_click_phase(_cx: &mut AsyncApp) -> Result<(), String> {
+    Ok(())
+}
+
+/// A fast scroll that overshoots the end of a short list must not move the cursor
+/// highlight off its row (it used to jump while the list clamped the scroll).
+async fn fast_scroll_phase(cx: &mut AsyncApp, base: &Path) -> Result<(), String> {
+    // Shaped like a typical Desktop: a few dozen items, mostly folders, a bit over one screen.
+    let dir = base.join("scrolly");
+    for i in 0..27 {
+        std::fs::create_dir_all(dir.join(format!("Folder {i:02}"))).map_err(|e| e.to_string())?;
+    }
+    for i in 0..9 {
+        std::fs::write(dir.join(format!("file {i}.txt")), "x").map_err(|e| e.to_string())?;
+    }
+    let d = dir.clone();
+    step(cx, "short list for fast scrolling", move |ws, w, cx| {
+        ws.navigate(0, d, None, w, cx);
+        ws.activate_side(0, w, cx);
+        ws.run(Action::ViewModeFull, w, cx);
+        ws.panels[0].tab_mut().set_cursor(3);
+        ws.reveal_cursor(0);
+    })
+    .await?;
+    pause(cx, 700).await;
+    let row_h = step(cx, "row height", |_, _, cx| Workspace::row_height(cx)).await?;
+    for (dy, name) in [(-4000.0f32, "past the bottom"), (4000.0, "past the top")] {
+        // Exactly what GPUI's scroll-wheel handler does with a big trackpad flick: add the
+        // delta without clamping and redraw. The list clamps it while laying out.
+        step(cx, "fast scroll", move |ws, _, cx| {
+            ws.pill_log[0].borrow_mut().clear();
+            let handle = ws.scroll[0].0.borrow().base_handle.clone();
+            let o = handle.offset();
+            handle.set_offset(point(o.x, o.y + px(dy)));
+            cx.notify();
+        })
+        .await?;
+        // Every frame painted since: the highlight must sit on the cursor's row as drawn.
+        let (frames, cursor) = step(cx, "read the highlight", |ws, _, _| (ws.pill_log[0].borrow().clone(), ws.panels[0].tab().cursor)).await?;
+        let off: Vec<(f32, f32)> = frames.iter().copied().filter(|&(top, offset)| (top - (cursor as f32 * row_h + offset)).abs() >= 1.0).collect();
+        eprintln!("smoke:   scrolled {name}: {} frame(s) painted, {} with the highlight off its row {:?}", frames.len(), off.len(), off.first());
+        check(!frames.is_empty() && off.is_empty(), &format!("after a fast scroll {name} the cursor highlight was drawn off its row: (drawn at, row offset) {off:?}"))?;
+    }
+    Ok(())
+}
+
+/// Applications show their real icons (loaded in the background) instead of a generic tile.
+async fn app_icons_phase(cx: &mut AsyncApp) -> Result<(), String> {
+    let apps = PathBuf::from("/System/Applications");
+    if !apps.is_dir() {
+        return Ok(());
+    }
+    step(cx, "applications folder", move |ws, w, cx| {
+        ws.navigate(0, apps, None, w, cx);
+        ws.activate_side(0, w, cx);
+        ws.run(Action::ViewModeFull, w, cx);
+    })
+    .await?;
+    let mut loaded = 0;
+    for _ in 0..40 {
+        pause(cx, 100).await;
+        loaded = cx.update(|cx| crate::fileicons::loaded(cx)).map_err(|e| e.to_string())?;
+        if loaded >= 5 {
+            break;
+        }
+    }
+    eprintln!("smoke:   {loaded} application icons loaded");
+    check(loaded >= 5, &format!("only {loaded} application icons loaded"))?;
+    shot(cx, "app-icons").await;
+    Ok(())
+}
+
+/// Dragging a file between panels with real mouse events still copies it (the drag-out
+/// hand-off only acts once the pointer leaves the window), and the macOS drag bridge
+/// declines cleanly when no drag is in progress. Leaving the window is tested by hand:
+/// a synthetic release during a real macOS drag would drop wherever the real pointer is.
+#[cfg(target_os = "macos")]
+async fn drag_phase(cx: &mut AsyncApp, base: &Path) -> Result<(), String> {
+    use crate::capture::MouseKind;
+    let (src, dst) = (base.join("dragsrc"), base.join("dragdst"));
+    std::fs::create_dir_all(&src).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dst).map_err(|e| e.to_string())?;
+    std::fs::write(src.join("drag-me.txt"), "drag").map_err(|e| e.to_string())?;
+    let (s, d) = (src.clone(), dst.clone());
+    step(cx, "panels for dragging", move |ws, w, cx| {
+        ws.navigate(0, s, None, w, cx);
+        ws.navigate(1, d, None, w, cx);
+        for side in 0..2 {
+            ws.panels[side].tab_mut().view_mode = fc_core::ViewMode::Full;
+        }
+        ws.activate_side(0, w, cx);
+    })
+    .await?;
+    pause(cx, 500).await;
+    let (left, right, row_h) = step(cx, "drag geometry", |ws, _, cx| (ws.list_bounds[0].get(), ws.list_bounds[1].get(), Workspace::row_height(cx))).await?;
+    let from = point(left.origin.x + px(40.), left.origin.y + px(row_h * 0.5));
+    let to = right.center();
+    let handle: gpui::AnyWindowHandle = cx.update(find_workspace).map_err(|e| e.to_string())?.ok_or("no workspace window")?.into();
+    post(cx, handle, MouseKind::Move, from)?;
+    pause(cx, 60).await;
+    post(cx, handle, MouseKind::LeftDown, from)?;
+    pause(cx, 60).await;
+    for i in 1..=8 {
+        let t = i as f32 / 8.0;
+        post(cx, handle, MouseKind::LeftDragged, point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t))?;
+        pause(cx, 30).await;
+    }
+    let armed = cx.update(|cx| crate::dragout::is_armed(cx) && cx.has_active_drag()).map_err(|e| e.to_string())?;
+    post(cx, handle, MouseKind::LeftUp, to)?;
+    pause(cx, 300).await;
+    wait_jobs(cx).await?;
+    let disarmed = cx.update(|cx| !crate::dragout::is_armed(cx) && !cx.has_active_drag()).map_err(|e| e.to_string())?;
+    eprintln!("smoke:   panel drag with real mouse events: armed while dragging {armed}, cleared after drop {disarmed}");
+    check(armed, "dragging a file did not start a drag that can leave the window")?;
+    check(exists(&dst.join("drag-me.txt")), "dragging a file to the other panel did not copy it")?;
+    check(disarmed, "the drag-out hand-off stayed armed after dropping inside the window")?;
+    let started = step(cx, "drag-out without a drag", move |_, w, _| crate::dragout::begin_native_drag(w, &[src.join("drag-me.txt")])).await?;
+    check(!started, "a macOS drag started without the mouse being dragged")?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn drag_phase(_cx: &mut AsyncApp, _base: &Path) -> Result<(), String> {
     Ok(())
 }

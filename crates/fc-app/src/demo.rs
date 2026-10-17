@@ -116,6 +116,7 @@ async fn shot(cx: &mut AsyncApp, dir: &Path, name: &str, which: Which) -> Result
                     Which::Viewer => w.downcast::<crate::viewer::Viewer>().is_some(),
                     Which::Prefs => w.downcast::<crate::prefs::PrefsView>().is_some(),
                     Which::Search => w.downcast::<crate::search::SearchView>().is_some(),
+                    Which::DiskMap => w.downcast::<crate::diskmap::DiskMap>().is_some(),
                 };
                 if matches {
                     let _ = w.update(cx, |_, window, _| {
@@ -138,6 +139,7 @@ enum Which {
     Viewer,
     Prefs,
     Search,
+    DiskMap,
 }
 
 /// Types text into whatever has focus, one key at a time.
@@ -447,6 +449,40 @@ async fn tour(out: &Path, cx: &mut AsyncApp) -> Result<(), String> {
     shot(cx, out, "14-search", Which::Search).await?;
     close_windows(cx, Which::Search)?;
 
+    // Disk Map: Disks and Folders, the map of the home folder, and the collector.
+    step(cx, "disk map", |ws, w, cx| ws.run(Action::DiskMap, w, cx)).await?;
+    pause(cx, 1000).await;
+    shot(cx, out, "19-disk-map-start", Which::DiskMap).await?;
+    let dm = cx
+        .update(|cx| cx.windows().into_iter().find_map(|w| w.downcast::<crate::diskmap::DiskMap>()))
+        .map_err(|e| e.to_string())?
+        .ok_or("disk map window did not open")?;
+    let err = |e: anyhow::Error| e.to_string();
+    // The 4 GB movie copied above would fill the whole map; scan the sample home without it.
+    let _ = std::fs::remove_file(home.join("Downloads/Holiday 4K.mov"));
+    let scan_home = home.clone();
+    dm.update(cx, |d, _, cx| d.start_scan(scan_home, cx)).map_err(err)?;
+    for _ in 0..200 {
+        pause(cx, 100).await;
+        if dm.update(cx, |d, _, _| d.page() == crate::diskmap::Page::Map).map_err(err)? {
+            break;
+        }
+    }
+    pause(cx, 900).await;
+    let pointed = home.join("Photos");
+    dm.update(cx, |d, _, cx| d.point_at(Some(&pointed), cx)).map_err(err)?;
+    shot(cx, out, "20-disk-map", Which::DiskMap).await?;
+    let (video, fonts) = (home.join("Projects/launch-video.mp4"), home.join("Downloads/fonts.zip"));
+    dm.update(cx, |d, _, cx| {
+        d.point_at(None, cx);
+        d.collect_path(&video, cx);
+        d.collect_path(&fonts, cx);
+        d.set_collector_open(true, cx);
+    })
+    .map_err(err)?;
+    shot(cx, out, "21-disk-map-collector", Which::DiskMap).await?;
+    close_windows(cx, Which::DiskMap)?;
+
     // Leave nothing selected or cut behind.
     let _ = step(cx, "tidy up", |ws, w, cx| {
         for side in 0..2 {
@@ -469,6 +505,7 @@ fn close_windows(cx: &mut AsyncApp, which: Which) -> Result<(), String> {
                 Which::Viewer => w.downcast::<crate::viewer::Viewer>().is_some(),
                 Which::Prefs => w.downcast::<crate::prefs::PrefsView>().is_some(),
                 Which::Search => w.downcast::<crate::search::SearchView>().is_some(),
+                Which::DiskMap => w.downcast::<crate::diskmap::DiskMap>().is_some(),
             };
             if matches {
                 let _ = w.update(cx, |_, window, _| window.remove_window());

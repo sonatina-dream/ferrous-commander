@@ -169,6 +169,7 @@ define_actions! {
     SearchSpotlight => "TCXSearchSpotlightAction", Other, "Search with Spotlight…";
     ShowTerminal => "TCXShowTerminal", Other, "Show terminal";
     OpenTerminalApp => "fc.OpenTerminalApp", Other, "Open in Terminal app";
+    DiskMap => "fc.DiskMap", Other, "Disk map…";
     CopyItemName => "TCXCopyItemNameAction", Other, "Copy name to clipboard";
     CopyItemPath => "TCXCopyItemPathAction", Other, "Copy path to clipboard";
     PasteItemName => "TCXPasteItemNameAction", Other, "Paste name to command line";
@@ -502,7 +503,8 @@ pub struct Keymap {
     pub bindings: Vec<Binding>,
 }
 
-/// Finder-style shortcuts added on top of Commander One's defaults.
+/// Shortcuts added on top of Commander One's defaults: Finder-style clipboard and Trash
+/// keys, and the Disk Map (SPEC-DiskMap.md §1).
 pub const EXTRA_BINDINGS: &[(&str, Action)] = &[
     ("cmd-c", Action::CopyFiles),
     ("cmd-x", Action::CutFiles),
@@ -510,6 +512,7 @@ pub const EXTRA_BINDINGS: &[(&str, Action)] = &[
     ("alt-cmd-v", Action::MoveHere),
     ("cmd-backspace", Action::Delete),
     ("alt-cmd-backspace", Action::DeleteForce),
+    ("shift-cmd-m", Action::DiskMap),
 ];
 
 /// Where this app's defaults depart from Commander One's: F2 renames in place, as in
