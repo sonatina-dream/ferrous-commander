@@ -191,12 +191,7 @@ impl Workspace {
                     self.notify_toast(format!("\"{}\" doesn't exist", path.display()), true);
                 }
             }
-            PaletteItem::Shell(cmd) => {
-                let dir = self.tab().working_dir().to_path_buf();
-                if let Err(e) = fc_core::platform::run_in_terminal(&dir, &cmd) {
-                    self.notify_toast(e.to_string(), true);
-                }
-            }
+            PaletteItem::Shell(cmd) => self.run_in_terminal(&cmd, window, cx),
             PaletteItem::Find(text) => {
                 let roots = vec![self.tab().working_dir().to_path_buf()];
                 crate::search::open_with(roots, false, Some(text), cx.entity().downgrade(), window.window_handle(), cx);
@@ -255,7 +250,7 @@ pub fn render(ws: &mut Workspace, window: &mut Window, cx: &mut Context<Workspac
                 look::chip(*group, &c, false).into_any_element(),
             ),
             PaletteItem::OpenPath(p) => (icons::FOLDER_OPEN, c.folder, format!("Open {}", p.display()), "Go to this path".into(), keycap("↩", &c).into_any_element()),
-            PaletteItem::Shell(cmd) => (icons::PROMPT, c.success, format!("Run “{cmd}”"), "In Terminal, from the current folder".into(), keycap("↩", &c).into_any_element()),
+            PaletteItem::Shell(cmd) => (icons::PROMPT, c.success, format!("Run “{cmd}”"), "In the terminal, from the current folder".into(), keycap("↩", &c).into_any_element()),
             PaletteItem::Find(q) => (icons::SEARCH, c.accent2, format!("Search for “{q}”"), "Find files in this folder and below".into(), keycap("⌥F7", &c).into_any_element()),
         };
         let run = item.clone();

@@ -27,8 +27,8 @@ use crate::{dialogs, icons, menus, palette};
 
 /// Width of a cell in thumbs mode.
 pub const THUMB_CELL: f32 = 128.0;
-const THUMB_HEIGHT: f32 = 126.0;
-const SIDEBAR_WIDTH: f32 = 214.0;
+pub const THUMB_HEIGHT: f32 = 126.0;
+pub const SIDEBAR_WIDTH: f32 = 214.0;
 const TITLEBAR_HEIGHT: f32 = 50.0;
 /// Rows animate in for this long after a folder change.
 const FRESH: Duration = Duration::from_millis(420);
@@ -258,7 +258,7 @@ impl Workspace {
             .child(segmented)
             .child(div().w(px(6.)))
             .child(nav("tb-hidden", if hidden { icons::EYE } else { icons::HIDDEN }, Action::ToggleHidden, true, hidden, c, cx))
-            .child(nav("tb-term", icons::TERMINAL, Action::ShowTerminal, true, false, c, cx))
+            .child(nav("tb-term", icons::TERMINAL, Action::ShowTerminal, true, self.terminal_open, c, cx))
             .child(
                 div()
                     .relative()
@@ -452,7 +452,18 @@ impl Workspace {
 
     // ----- panel card ------------------------------------------------------------------
 
-    fn render_tabs(&mut self, side: usize, c: &Colors, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Button that hides the right panel (it can be shown again from Settings ▸ View).
+    fn close_panel_button(&self, side: usize, c: &Colors, cx: &mut Context<Self>) -> impl IntoElement {
+        ghost_button(SharedString::from(format!("close-panel-{side}")), icons::CLOSE, c, false, true).size(px(26.)).on_mouse_down(
+            MouseButton::Left,
+            cx.listener(|this, _, w, cx| {
+                cx.stop_propagation();
+                this.run(Action::ToggleRightPanel, w, cx);
+            }),
+        )
+    }
+
+    fn render_tabs(&mut self, side: usize, closable: bool, c: &Colors, cx: &mut Context<Self>) -> impl IntoElement {
         let panel = &self.panels[side];
         let active_panel = side == self.active;
         let mut strip = div()
@@ -511,17 +522,19 @@ impl Workspace {
                     })),
             );
         }
-        strip.child(ghost_button(SharedString::from(format!("tab-new-{side}")), icons::PLUS, c, false, true).size(px(24.)).on_mouse_down(
-            MouseButton::Left,
-            cx.listener(move |this, _, w, cx| {
-                cx.stop_propagation();
-                this.active = side;
-                this.run(Action::NewTab, w, cx);
-            }),
-        ))
+        strip
+            .child(ghost_button(SharedString::from(format!("tab-new-{side}")), icons::PLUS, c, false, true).size(px(24.)).on_mouse_down(
+                MouseButton::Left,
+                cx.listener(move |this, _, w, cx| {
+                    cx.stop_propagation();
+                    this.active = side;
+                    this.run(Action::NewTab, w, cx);
+                }),
+            ))
+            .when(closable, |d| d.child(div().flex_1()).child(self.close_panel_button(side, c, cx)))
     }
 
-    fn render_card_header(&mut self, side: usize, show_new_tab: bool, c: &Colors, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_card_header(&mut self, side: usize, show_new_tab: bool, closable: bool, c: &Colors, cx: &mut Context<Self>) -> impl IntoElement {
         let tab = self.panels[side].tab();
         let is_favorite = cx.global::<AppState>().settings.favorites.iter().any(|f| f == tab.working_dir());
         let mut crumbs = div().flex().items_center().flex_1().min_w(px(0.)).overflow_hidden().gap(px(2.));
@@ -633,6 +646,7 @@ impl Workspace {
                     }),
                 ))
             })
+            .when(closable, |d| d.child(self.close_panel_button(side, c, cx)))
     }
 
     fn render_column_header(&mut self, side: usize, cols: &[SortKey], c: &Colors, cx: &mut Context<Self>) -> impl IntoElement {
@@ -712,6 +726,31 @@ impl Workspace {
             let name = if show_ext_col && !e.extension().is_empty() { e.stem().to_string() } else { e.name.clone() };
             let base_opacity = if e.hidden { 0.55 } else { 1.0 } * if cut.contains(&e.path) { 0.45 } else { 1.0 };
 
+            let editor = self.rename_field(side, &e.path, &c);
+            let renaming = editor.is_some();
+            let tile = file_tile(kind, 22., &c, on_pill).relative().when(marked, |d| d.child(check_badge(&c)));
+            let label: AnyElement = match editor {
+                Some(field) => field.into_any_element(),
+                None => div()
+                    .min_w(px(0.))
+                    .overflow_hidden()
+                    .text_ellipsis()
+                    .whitespace_nowrap()
+                    .when(marked || e.groups_as_folder(), |d| d.font_weight(FontWeight::MEDIUM))
+                    .child(name)
+                    .into_any_element(),
+            };
+            // Icon and name: dragging here moves the items; the rest of the row draws a band.
+            let handle = div()
+                .id(("name", ix))
+                .flex()
+                .items_center()
+                .gap(px(10.))
+                .min_w(px(0.))
+                .overflow_hidden()
+                .when(renaming, |d| d.flex_1())
+                .child(tile)
+                .child(label);
             let mut row = div()
                 .id(("row", ix))
                 .w_full()
@@ -726,17 +765,8 @@ impl Workspace {
                 .opacity(base_opacity)
                 .when(marked && !on_pill, |d| d.bg(c.mark))
                 .when(!on_pill && !marked, |d| d.hover(|s| s.bg(c.hover)))
-                .child(file_tile(kind, 22., &c, on_pill).relative().when(marked, |d| d.child(check_badge(&c))))
-                .child(
-                    div()
-                        .flex_1()
-                        .min_w(px(40.))
-                        .overflow_hidden()
-                        .text_ellipsis()
-                        .whitespace_nowrap()
-                        .when(marked || e.groups_as_folder(), |d| d.font_weight(FontWeight::MEDIUM))
-                        .child(name),
-                );
+                .child(self.wire_handle(handle, side, ix, &e, &selected_paths, cx))
+                .when(!renaming, |d| d.child(div().flex_1().min_w(px(0.))));
             for &key in cols.iter().skip(1) {
                 let text = cell_text(tab, &e, key, size_mode, now);
                 if key == SortKey::Size {
@@ -772,7 +802,7 @@ impl Workspace {
                     );
                 }
             }
-            let row = self.wire_row(row, side, ix, &e, &selected_paths, cx);
+            let row = self.wire_row(row, side, ix, &e, &c, cx);
             out.push(if fresh && ix < 80 {
                 row.with_animation(
                     ("row-in", generation * 100_000 + ix),
@@ -787,23 +817,65 @@ impl Workspace {
         out
     }
 
-    /// Mouse and drag behaviour shared by all list modes.
-    fn wire_row(&self, row: gpui::Stateful<gpui::Div>, side: usize, ix: usize, e: &Entry, selected: &[PathBuf], cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
+    /// The inline name editor, when `path` in `side` is being renamed.
+    fn rename_field(&self, side: usize, path: &Path, c: &Colors) -> Option<gpui::Div> {
+        let r = self.rename.as_ref().filter(|r| r.side == side && r.path == path)?;
+        Some(
+            div()
+                .flex_1()
+                .min_w(px(60.))
+                .px(px(4.))
+                .rounded(px(5.))
+                .bg(c.bg)
+                .border_1()
+                .border_color(c.accent)
+                .text_color(c.text)
+                .font_weight(FontWeight::NORMAL)
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .child(r.input.clone()),
+        )
+    }
+
+    /// Clicks, the context menu and folder drop targets, shared by all list modes. A press
+    /// on the row outside its name handle starts a selection band.
+    fn wire_row(&self, row: gpui::Stateful<gpui::Div>, side: usize, ix: usize, e: &Entry, c: &Colors, cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
         let row = row
             .on_mouse_down(MouseButton::Left, cx.listener(move |this, ev: &MouseDownEvent, w, cx| {
                 cx.stop_propagation();
-                this.row_mouse_down(side, ix, ev, w, cx)
+                this.row_mouse_down(side, ix, false, ev, w, cx)
             }))
             .on_mouse_down(MouseButton::Right, cx.listener(move |this, ev: &MouseDownEvent, w, cx| {
                 cx.stop_propagation();
                 this.row_right_click(side, ix, ev.position, w, cx)
             }));
-        if e.is_parent() {
+        if !e.is_navigable() {
             return row;
+        }
+        // Folders (and `..`) take dropped items.
+        let folder = e.path.clone();
+        let (f1, f2, f3) = (folder.clone(), folder.clone(), folder);
+        let tint = c.accent.opacity(0.22);
+        row.drag_over::<DraggedFiles>(move |style, files, _, _| {
+            if fc_core::ops::drop_action(&files.paths, &f1, false, false).is_some() { style.bg(tint) } else { style }
+        })
+        .drag_over::<ExternalPaths>(move |style, _, _, _| style.bg(tint))
+        .on_drop(cx.listener(move |this, files: &DraggedFiles, w, cx| this.drop_into_folder(side, f2.clone(), files, w, cx)))
+        .on_drop(cx.listener(move |this, paths: &ExternalPaths, _w, cx| this.drop_external_into(f3.clone(), paths.paths(), cx)))
+    }
+
+    /// The icon and name of a row: pressing selects it, dragging moves the items.
+    fn wire_handle(&self, handle: gpui::Stateful<gpui::Div>, side: usize, ix: usize, e: &Entry, selected: &[PathBuf], cx: &mut Context<Self>) -> gpui::Stateful<gpui::Div> {
+        let handle = handle.on_mouse_down(MouseButton::Left, cx.listener(move |this, ev: &MouseDownEvent, w, cx| {
+            cx.stop_propagation();
+            this.row_mouse_down(side, ix, true, ev, w, cx)
+        }));
+        let renaming = self.rename.as_ref().is_some_and(|r| r.side == side && r.path == e.path);
+        if e.is_parent() || renaming {
+            return handle;
         }
         let paths = if self.panels[side].tab().is_selected(e) { selected.to_vec() } else { vec![e.path.clone()] };
         let label = if paths.len() == 1 { e.name.clone() } else { format!("{} items", paths.len()) };
-        row.on_drag(DraggedFiles { side, paths }, move |_, _offset, _w, cx| cx.new(|_| DragPreview { label: label.clone() }))
+        handle.on_drag(DraggedFiles { side, paths }, move |_, _offset, _w, cx| cx.new(|_| DragPreview { label: label.clone() }))
     }
 
     fn render_brief(&mut self, side: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -843,6 +915,22 @@ impl Workspace {
                 let is_cursor = ix == tab.cursor;
                 let on_pill = is_cursor && active_panel;
                 let fg = if on_pill { c.cursor_text } else if marked { c.mark_text } else { c.text };
+                let editor = self.rename_field(side, &e.path, &c);
+                let renaming = editor.is_some();
+                let label: AnyElement = match editor {
+                    Some(field) => field.into_any_element(),
+                    None => div().min_w(px(0.)).overflow_hidden().text_ellipsis().whitespace_nowrap().child(e.name.clone()).into_any_element(),
+                };
+                let handle = div()
+                    .id(("brief-name", ix))
+                    .flex()
+                    .items_center()
+                    .gap(px(8.))
+                    .min_w(px(0.))
+                    .overflow_hidden()
+                    .when(renaming, |d| d.flex_1())
+                    .child(file_tile(look::kind_of(&e), 18., &c, on_pill).relative().when(marked, |d| d.child(check_badge(&c))))
+                    .child(label);
                 let row = div()
                     .id(("brief", ix))
                     .flex()
@@ -859,9 +947,9 @@ impl Workspace {
                     .when(marked && !on_pill, |d| d.bg(c.mark))
                     .when(!on_pill && !marked, |d| d.hover(|s| s.bg(c.hover)))
                     .opacity(if e.hidden { 0.55 } else { 1.0 } * if cut.contains(&e.path) { 0.45 } else { 1.0 })
-                    .child(file_tile(look::kind_of(&e), 18., &c, on_pill).relative().when(marked, |d| d.child(check_badge(&c))))
-                    .child(div().flex_1().overflow_hidden().text_ellipsis().whitespace_nowrap().child(e.name.clone()));
-                column = column.child(self.wire_row(row, side, ix, &e, &selected_paths, cx));
+                    .child(self.wire_handle(handle, side, ix, &e, &selected_paths, cx))
+                    .when(!renaming, |d| d.child(div().flex_1().min_w(px(0.))));
+                column = column.child(self.wire_row(row, side, ix, &e, &c, cx));
             }
             grid = grid.child(column);
         }
@@ -917,16 +1005,36 @@ impl Workspace {
                 } else {
                     format::format_size(e.size, size_mode)
                 };
-                let cell = div()
-                    .id(("thumb", ix))
-                    .w(px(THUMB_CELL - 6.))
-                    .h(px(THUMB_HEIGHT - 8.))
-                    .m(px(3.))
+                let name_el: AnyElement = match self.rename_field(side, &e.path, &c) {
+                    Some(field) => div().w_full().px(px(4.)).flex().child(field).into_any_element(),
+                    None => div()
+                        .w_full()
+                        .px(px(8.))
+                        .text_size(px(11.5))
+                        .text_color(if on_pill { c.cursor_text } else if marked { c.mark_text } else { c.text })
+                        .text_center()
+                        .overflow_hidden()
+                        .text_ellipsis()
+                        .whitespace_nowrap()
+                        .child(e.name.clone())
+                        .into_any_element(),
+                };
+                let content = div()
+                    .id(("thumb-body", ix))
+                    .size_full()
                     .flex()
                     .flex_col()
                     .items_center()
                     .justify_center()
                     .gap(px(5.))
+                    .child(div().h(px(70.)).flex().items_center().justify_center().relative().child(picture).when(marked, |d| d.child(check_badge(&c))))
+                    .child(name_el)
+                    .child(div().text_size(px(10.)).text_color(if on_pill { c.cursor_text.opacity(0.75) } else { c.muted }).child(meta));
+                let cell = div()
+                    .id(("thumb", ix))
+                    .w(px(THUMB_CELL - 6.))
+                    .h(px(THUMB_HEIGHT - 8.))
+                    .m(px(3.))
                     .rounded(px(12.))
                     .when(on_pill, |d| {
                         d.bg(c.cursor).shadow(vec![BoxShadow { color: c.cursor.opacity(0.45), offset: point(px(0.), px(6.)), blur_radius: px(16.), spread_radius: px(-4.) }])
@@ -935,21 +1043,8 @@ impl Workspace {
                     .when(marked && !on_pill, |d| d.bg(c.mark).border_1().border_color(c.accent.opacity(0.6)))
                     .when(!on_pill && !marked, |d| d.hover(|s| s.bg(c.hover)))
                     .opacity(if e.hidden { 0.55 } else { 1.0 } * if cut.contains(&e.path) { 0.45 } else { 1.0 })
-                    .child(div().h(px(70.)).flex().items_center().justify_center().relative().child(picture).when(marked, |d| d.child(check_badge(&c))))
-                    .child(
-                        div()
-                            .w_full()
-                            .px(px(8.))
-                            .text_size(px(11.5))
-                            .text_color(if on_pill { c.cursor_text } else if marked { c.mark_text } else { c.text })
-                            .text_center()
-                            .overflow_hidden()
-                            .text_ellipsis()
-                            .whitespace_nowrap()
-                            .child(e.name.clone()),
-                    )
-                    .child(div().text_size(px(10.)).text_color(if on_pill { c.cursor_text.opacity(0.75) } else { c.muted }).child(meta));
-                line = line.child(self.wire_row(cell, side, ix, &e, &selected_paths, cx));
+                    .child(self.wire_handle(content, side, ix, &e, &selected_paths, cx));
+                line = line.child(self.wire_row(cell, side, ix, &e, &c, cx));
             }
             out.push(line.into_any_element());
         }
@@ -1002,6 +1097,22 @@ impl Workspace {
                 .when(!active, |d| d.border_1().border_color(c.cursor.opacity(0.5)).bg(c.cursor.opacity(0.07)))
         });
 
+        // The selection band, in list coordinates (content coordinates minus the scroll).
+        let band = self.marquee.as_ref().filter(|m| m.side == side && m.band.is_drag()).map(|m| {
+            let scrolled = if mode == ViewMode::Brief { 0.0 } else { -f32::from(self.scroll[side].0.borrow().base_handle.offset().y) };
+            let b = m.band;
+            div()
+                .absolute()
+                .left(px(b.left()))
+                .top(px(b.top() - scrolled))
+                .w(px(b.right() - b.left()))
+                .h(px(b.bottom() - b.top()))
+                .rounded(px(3.))
+                .bg(c.accent.opacity(0.12))
+                .border_1()
+                .border_color(c.accent.opacity(0.75))
+        });
+
         div()
             .flex()
             .flex_col()
@@ -1018,6 +1129,7 @@ impl Workspace {
                     .child(canvas(move |bounds, _, _| bounds_cell.set(bounds), |_, _, _, _| {}).absolute().size_full())
                     .children(pill)
                     .child(body)
+                    .children(band)
                     .when(only_parent, |d| {
                         d.child(
                             div()
@@ -1037,8 +1149,9 @@ impl Workspace {
                     .drag_over::<ExternalPaths>(move |style, _, _, _| style.bg(drop_tint))
                     .on_drop(cx.listener(move |this, files: &DraggedFiles, w, cx| this.drop_files(side, files, w, cx)))
                     .on_drop(cx.listener(move |this, paths: &ExternalPaths, w, cx| this.drop_external(side, paths.paths(), w, cx)))
-                    .on_mouse_down(MouseButton::Left, cx.listener(move |this, _, w, cx| this.activate_side(side, w, cx)))
+                    .on_mouse_down(MouseButton::Left, cx.listener(move |this, ev: &MouseDownEvent, w, cx| this.background_mouse_down(side, ev, w, cx)))
                     .on_mouse_down(MouseButton::Right, cx.listener(move |this, ev: &MouseDownEvent, w, cx| {
+                        this.commit_rename(w, cx);
                         this.activate_side(side, w, cx);
                         let menu = this.background_menu(ev.position, cx);
                         this.open_menu(menu, w, cx);
@@ -1116,6 +1229,7 @@ impl Workspace {
     fn render_card(&mut self, side: usize, s: &Settings, c: &Colors, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let active = side == self.active;
         let show_tabs = self.panels[side].tabs.len() > 1 || s.view.always_show_tab_bar;
+        let closable = side == 1 && s.view.show_right_panel;
         let card = div()
             .relative()
             .child(crate::probe::probe(format!("main.card{side}")))
@@ -1129,8 +1243,8 @@ impl Workspace {
             .border_1()
             .border_color(if active { c.accent.opacity(if c.dark { 0.3 } else { 0.4 }) } else { c.border.opacity(0.8) })
             .shadow(look::card_shadow(c, if active { 1.0 } else { 0.0 }))
-            .when(show_tabs, |d| d.child(self.render_tabs(side, c, cx)))
-            .when(s.view.show_path_bar, |d| d.child(self.render_card_header(side, !show_tabs, c, cx)))
+            .when(show_tabs, |d| d.child(self.render_tabs(side, closable && !s.view.show_path_bar, c, cx)))
+            .when(s.view.show_path_bar, |d| d.child(self.render_card_header(side, !show_tabs, closable, c, cx)))
             .child(self.render_list(side, s, c, window, cx))
             .when(s.view.show_selection_info, |d| d.child(self.render_footer(side, s, c)));
         if active {
@@ -1235,6 +1349,108 @@ impl Workspace {
             }
         }
         dock
+    }
+
+    // ----- embedded terminal -----------------------------------------------------------
+
+    fn render_terminal(&mut self, c: &Colors, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let term = self.terminal.clone().filter(|_| self.terminal_open)?;
+        let (focused, cwd) = {
+            let t = term.read(cx);
+            (t.focus.is_focused(window), t.session.cwd())
+        };
+        let home = crate::workspace::dirs_home();
+        let where_ = cwd
+            .map(|p| match p.strip_prefix(&home) {
+                Ok(rest) if rest.as_os_str().is_empty() => "~".to_string(),
+                Ok(rest) => format!("~/{}", rest.display()),
+                Err(_) => p.display().to_string(),
+            })
+            .unwrap_or_default();
+        let button = |id: &'static str, glyph: &'static str, tip: &'static str, c: &Colors| {
+            div()
+                .id(id)
+                .flex()
+                .flex_none()
+                .items_center()
+                .gap(px(5.))
+                .h(px(22.))
+                .px(px(7.))
+                .rounded(px(6.))
+                .cursor_pointer()
+                .text_size(px(11.5))
+                .text_color(c.muted)
+                .hover(|st| st.bg(c.hover).text_color(c.chrome_text))
+                .child(icon(glyph, 12., c.muted))
+                .child(tip)
+        };
+        let header = div()
+            .flex()
+            .flex_none()
+            .items_center()
+            .gap(px(6.))
+            .h(px(32.))
+            .pl(px(12.))
+            .pr(px(6.))
+            .border_b_1()
+            .border_color(c.border.opacity(0.6))
+            .text_size(px(12.))
+            .child(icon(icons::TERMINAL, 13., if focused { c.accent } else { c.muted }))
+            .child(div().font_weight(FontWeight::SEMIBOLD).text_color(c.text).child("Terminal"))
+            .child(div().flex_1().min_w(px(0.)).text_color(c.muted).font_family("Menlo").text_size(px(11.)).overflow_hidden().text_ellipsis().whitespace_nowrap().child(where_))
+            .child(button("term-cd", icons::FOLDER, "cd to panel", c).on_mouse_down(MouseButton::Left, cx.listener(|this, _, w, cx| {
+                cx.stop_propagation();
+                this.terminal_to_panel(w, cx);
+            })))
+            .child(button("term-show", icons::FOLDER_OPEN, "Show in panel", c).on_mouse_down(MouseButton::Left, cx.listener(|this, _, w, cx| {
+                cx.stop_propagation();
+                this.panel_to_terminal(w, cx);
+            })))
+            .child(button("term-app", icons::TERMINAL, "Terminal app", c).on_mouse_down(MouseButton::Left, cx.listener(|this, _, w, cx| {
+                cx.stop_propagation();
+                this.run(Action::OpenTerminalApp, w, cx);
+            })))
+            .child(ghost_button("term-close", icons::CLOSE, c, false, true).size(px(24.)).on_mouse_down(MouseButton::Left, cx.listener(|this, _, w, cx| {
+                cx.stop_propagation();
+                this.toggle_terminal(w, cx);
+            })));
+        Some(
+            div()
+                .id("terminal-panel")
+                .relative()
+                .child(crate::probe::probe("main.terminal"))
+                .flex()
+                .flex_col()
+                .flex_none()
+                .h(px(self.terminal_height))
+                .mx(px(12.))
+                .mt(px(2.))
+                .mb(px(4.))
+                .overflow_hidden()
+                .rounded(px(14.))
+                .bg(c.bg.opacity(if c.dark { 0.92 } else { 0.95 }))
+                .border_1()
+                .border_color(if focused { c.accent.opacity(if c.dark { 0.3 } else { 0.4 }) } else { c.border.opacity(0.8) })
+                .shadow(look::card_shadow(c, if focused { 1.0 } else { 0.0 }))
+                .child(header)
+                .child(div().flex_1().min_h(px(0.)).child(term))
+                // Drag the top edge to resize.
+                .child(
+                    div()
+                        .id("terminal-resize")
+                        .absolute()
+                        .top_0()
+                        .left_0()
+                        .right_0()
+                        .h(px(5.))
+                        .cursor_row_resize()
+                        .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _w, cx| {
+                            cx.stop_propagation();
+                            this.dragging_terminal = true;
+                        })),
+                )
+                .into_any_element(),
+        )
     }
 
     // ----- floating overlays -----------------------------------------------------------
@@ -1392,6 +1608,10 @@ impl Render for Workspace {
         let c = Colors::get(window, cx);
         text_input::set_style(InputStyle { text: c.text, muted: c.muted, bg: c.bg, border: c.border, accent: c.accent, selection: c.accent.opacity(0.28) });
         let s = cx.global::<AppState>().settings.clone();
+        let dual = s.view.show_right_panel;
+        if !dual && self.active == 1 {
+            self.active = 0;
+        }
         let split = {
             let viewport: f32 = window.viewport_size().width.into();
             let usable = (viewport - if s.view.show_sidebar { SIDEBAR_WIDTH } else { 0.0 } - 40.0).max(1.0);
@@ -1399,10 +1619,40 @@ impl Render for Workspace {
             self.split.clamp(min, 1.0 - min)
         };
 
+        let left = self.render_card(0, &s, &c, window, cx);
+        let mut cards: Vec<AnyElement> = Vec::new();
+        if dual {
+            let right = self.render_card(1, &s, &c, window, cx);
+            cards.push(div().h_full().w(relative(split)).child(left).into_any_element());
+            cards.push(
+                div()
+                    .id("splitter")
+                    .w(px(12.))
+                    .h_full()
+                    .flex_none()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .cursor_col_resize()
+                    .group("splitter")
+                    .child(div().w(px(3.)).h(px(44.)).rounded_full().group_hover("splitter", |st| st.bg(c.accent.opacity(0.6))))
+                    .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _w, cx| {
+                        cx.stop_propagation();
+                        this.dragging_split = true;
+                    }))
+                    .into_any_element(),
+            );
+            cards.push(div().h_full().flex_1().min_w(px(0.)).child(right).into_any_element());
+        } else {
+            cards.push(div().h_full().flex_1().min_w(px(0.)).child(left).into_any_element());
+        }
+        let terminal = self.render_terminal(&c, window, cx);
         let panels = actions::route(
             div()
                 .id("panels")
-                .key_context(PANEL_CONTEXT)
+                // While a name is edited in place, panel shortcuts (Space, ⌫, arrows…) must
+                // reach the text field instead.
+                .key_context(if self.rename.is_some() { "PaneRenaming" } else { PANEL_CONTEXT })
                 .track_focus(&self.focus)
                 .flex()
                 .flex_row()
@@ -1430,25 +1680,9 @@ impl Render for Workspace {
                 .on_action(cx.listener(|this, _: &ui::ExtendEnd, w, cx| this.on_nav(UiNav::End(true), w, cx)))
                 .on_action(cx.listener(|this, _: &ui::GoUpKey, w, cx| this.on_nav(UiNav::GoUp, w, cx)))
                 .on_action(cx.listener(|this, _: &ui::ClearTypeAhead, w, cx| this.on_nav(UiNav::ClearTypeAhead, w, cx)))
-                .child(div().h_full().w(relative(split)).child(self.render_card(0, &s, &c, window, cx)))
-                .child(
-                    div()
-                        .id("splitter")
-                        .w(px(12.))
-                        .h_full()
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .cursor_col_resize()
-                        .group("splitter")
-                        .child(div().w(px(3.)).h(px(44.)).rounded_full().group_hover("splitter", |st| st.bg(c.accent.opacity(0.6))))
-                        .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _w, cx| {
-                            cx.stop_propagation();
-                            this.dragging_split = true;
-                        })),
-                )
-                .child(div().h_full().flex_1().min_w(px(0.)).child(self.render_card(1, &s, &c, window, cx))),
+                .on_action(cx.listener(|this, _: &ui::Confirm, w, cx| this.commit_rename(w, cx)))
+                .on_action(cx.listener(|this, _: &ui::Cancel, w, cx| this.cancel_rename(w, cx)))
+                .children(cards),
             cx,
             Workspace::run,
         );
@@ -1467,6 +1701,7 @@ impl Render for Workspace {
             .text_size(px(13.))
             .on_action(cx.listener(|this, _: &ui::Quit, w, cx| this.quit(w, cx)))
             .on_action(cx.listener(|this, _: &ui::OpenPalette, w, cx| this.open_palette(w, cx)))
+            .on_action(cx.listener(|this, _: &ui::ToggleTerminal, w, cx| this.toggle_terminal(w, cx)))
             .on_action(cx.listener(|this, _: &ui::CloseWindow, w, cx| {
                 this.save_session(w, cx);
                 w.remove_window();
@@ -1501,21 +1736,8 @@ impl Render for Workspace {
                     this.notify_toast(e.to_string(), true);
                 }
             }))
-            .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, w, cx| {
-                if this.dragging_split {
-                    let sidebar = if cx.global::<AppState>().settings.view.show_sidebar { SIDEBAR_WIDTH } else { 0.0 };
-                    let width: f32 = w.viewport_size().width.into();
-                    let x: f32 = ev.position.x.into();
-                    let usable = (width - sidebar - 24.0).max(1.0);
-                    this.split_drag((x - sidebar - 12.0) / usable, cx);
-                }
-            }))
-            .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _w, cx| {
-                if this.dragging_split {
-                    this.dragging_split = false;
-                    cx.notify();
-                }
-            }))
+            .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, w, cx| this.mouse_moved(ev.position, ev.pressed_button == Some(MouseButton::Left), w, cx)))
+            .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _w, cx| this.mouse_released(cx)))
             .child(self.render_titlebar(&c, cx))
             .child(
                 div()
@@ -1526,6 +1748,7 @@ impl Render for Workspace {
                     .when(s.view.show_sidebar, |d| d.child(self.render_sidebar(&c, cx)))
                     .child(panels),
             )
+            .children(terminal)
             .when(s.view.show_command_line || s.view.show_buttons, |d| d.child(self.render_dock(&s, &c, cx)))
             .children(self.render_job_cards(&c, cx))
             .children(self.render_toast(&c))

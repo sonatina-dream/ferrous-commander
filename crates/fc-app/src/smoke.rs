@@ -32,6 +32,9 @@ fn sandbox() -> PathBuf {
 
 pub fn run(cx: &mut App) {
     cx.set_global(crate::probe::Probes::default());
+    // The script works with both panels (settings live in a throw-away folder).
+    cx.global_mut::<AppState>().settings.view.show_right_panel = true;
+    cx.refresh_windows();
     cx.spawn(async move |cx: &mut AsyncApp| {
         let result = script(cx).await;
         match &result {
@@ -133,7 +136,7 @@ async fn script(cx: &mut AsyncApp) -> Result<(), String> {
         .await?;
     }
     let names = step(cx, "list", |ws, _, _| ws.panels[0].tab().entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>()).await?;
-    check(names == ["..", "sub", "a.txt", "b.txt", "c.md"], &format!("unexpected listing {names:?}"))?;
+    check(names == ["sub", "a.txt", "b.txt", "c.md"], &format!("unexpected listing {names:?}"))?;
     for (action, mode) in [(Action::ViewModeBrief, ViewMode::Brief), (Action::ViewModeThumbs, ViewMode::Thumbs), (Action::ViewModeFull, ViewMode::Full)] {
         let m = step(cx, &format!("{action:?}"), move |ws, w, cx| {
             ws.run(action, w, cx);
@@ -240,10 +243,10 @@ async fn script(cx: &mut AsyncApp) -> Result<(), String> {
     step(cx, "rename", |ws, w, cx| {
         ws.close_dialog(w, cx);
         ws.run(Action::Rename, w, cx);
-        if let Some(Dialog::Rename { input, .. }) = &ws.dialog {
-            input.update(cx, |i, cx| i.set_text("renamed.txt", cx));
+        if let Some(r) = &ws.rename {
+            r.input.update(cx, |i, cx| i.set_text("renamed.txt", cx));
         }
-        ws.confirm_dialog(w, cx);
+        ws.commit_rename(w, cx);
     })
     .await?;
     check(exists(&left.join("renamed.txt")) && !exists(&left.join("a.txt")), "rename failed")?;
@@ -317,6 +320,10 @@ async fn script(cx: &mut AsyncApp) -> Result<(), String> {
     palette_phase(cx).await?;
     keyboard_phase(cx, &left).await?;
     clipboard_phase(cx, &left, &right).await?;
+    rename_phase(cx, &left).await?;
+    mouse_phase(cx, &left).await?;
+    panels_phase(cx).await?;
+    terminal_phase(cx, &left).await?;
     layout_phase(cx).await?;
 
     let windows = cx.update(|cx| cx.windows().len()).map_err(|e| e.to_string())?;
@@ -394,7 +401,7 @@ async fn keyboard_phase(cx: &mut AsyncApp, left: &Path) -> Result<(), String> {
     let name = step(cx, "type-ahead via keys", |ws, _, _| ws.panels[1].tab().cursor_entry().map(|e| e.name.clone())).await?;
     check(name.as_deref() == Some("renamed.txt"), &format!("type-ahead keys landed on {name:?}"))?;
 
-    keys(cx, &["home", "down", "enter"]).await?;
+    keys(cx, &["home", "enter"]).await?;
     let dir = step(cx, "enter folder", |ws, _, _| ws.panels[1].tab().working_dir().to_path_buf()).await?;
     check(dir.ends_with("left/sub"), &format!("Return entered {}", dir.display()))?;
     keys(cx, &["backspace"]).await?;
@@ -518,6 +525,337 @@ async fn clipboard_phase(cx: &mut AsyncApp, left: &Path, right: &Path) -> Result
     Ok(())
 }
 
+/// With `FC_SMOKE_SHOTS=<dir>`, saves the main window as `<dir>/<name>.png` for review.
+async fn shot(cx: &mut AsyncApp, name: &str) {
+    let Some(dir) = std::env::var_os("FC_SMOKE_SHOTS").map(PathBuf::from) else { return };
+    pause(cx, 350).await;
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join(format!("{name}.png"));
+    #[cfg(target_os = "macos")]
+    let _ = cx.update(|cx| {
+        if let Some(h) = find_workspace(cx) {
+            let _ = h.update(cx, |_, window, _| {
+                if let Some(frame) = crate::capture::window_number(window).and_then(|id| crate::capture::capture(id, true)) {
+                    frame.save_png(&path);
+                }
+            });
+        }
+    });
+    eprintln!("smoke:   screenshot {}", path.display());
+}
+
+/// Puts the cursor of `side` on `dir/name` (navigating there first); false if not listed.
+fn cursor_to(side: usize, dir: PathBuf, name: &'static str) -> impl FnOnce(&mut Workspace, &mut gpui::Window, &mut gpui::Context<Workspace>) -> bool {
+    move |ws, w, cx| {
+        if ws.panels[side].tab().working_dir() != dir {
+            ws.navigate(side, dir.clone(), None, w, cx);
+        }
+        let _ = ws.panels[side].tab_mut().reload(Workspace::opts(cx));
+        ws.activate_side(side, w, cx);
+        let tab = ws.panels[side].tab_mut();
+        tab.unselect_all();
+        let ix = tab.index_of(&dir.join(name));
+        if let Some(ix) = ix {
+            tab.set_cursor(ix);
+        }
+        ix.is_some()
+    }
+}
+
+/// F2 renames in place: typing (including keys that are panel shortcuts), ↩, Esc, blur.
+async fn rename_phase(cx: &mut AsyncApp, left: &Path) -> Result<(), String> {
+    eprintln!("smoke: rename phase");
+    let l = left.to_path_buf();
+    check(step(cx, "cursor on b.txt", cursor_to(0, l.clone(), "b.txt")).await?, "b.txt not listed")?;
+    keys(cx, &["f2"]).await?;
+    let editing = step(cx, "f2 edits in place", |ws, _, _| ws.rename.is_some() && ws.dialog.is_none()).await?;
+    check(editing, "F2 did not start renaming in place")?;
+    shot(cx, "rename-in-place").await;
+    // The stem is selected, so typing replaces it; Space and ⌫ must edit, not select or go up.
+    keys(cx, &["n", "e", "w", "space", "n", "a", "m", "e", "backspace", "e", "enter"]).await?;
+    check(exists(&l.join("new name.txt")) && !exists(&l.join("b.txt")), "typing a name and ↩ did not rename b.txt to 'new name.txt'")?;
+    let (done, focused, cursor, selected) = step(cx, "rename finished", |ws, w, _| {
+        let tab = ws.panels[0].tab();
+        (ws.rename.is_none(), ws.focus.is_focused(w), tab.cursor_entry().map(|e| e.name.clone()), tab.selected.len())
+    })
+    .await?;
+    check(done && focused, "the panels did not get the focus back after renaming")?;
+    check(cursor.as_deref() == Some("new name.txt") && selected == 0, &format!("after renaming the cursor is on {cursor:?}, {selected} selected"))?;
+
+    keys(cx, &["f2", "z", "z", "escape"]).await?;
+    let open = step(cx, "escape cancels", |ws, _, _| ws.rename.is_some()).await?;
+    check(!open && exists(&l.join("new name.txt")) && !exists(&l.join("zz.txt")), "Esc did not cancel the rename")?;
+
+    check(step(cx, "cursor on c.md", cursor_to(0, l.clone(), "c.md")).await?, "c.md not listed")?;
+    keys(cx, &["f2", "d", "o", "c"]).await?;
+    // GPUI reports focus changes only in the key window; other windows of this run
+    // (Settings, Search) may have taken that role.
+    step(cx, "activate window", |_, w, cx| {
+        cx.activate(true);
+        w.activate_window();
+    })
+    .await?;
+    pause(cx, 300).await;
+    let active = step(cx, "focus moves away", |ws, w, _| {
+        let active = w.is_window_active();
+        w.focus(&ws.focus);
+        active
+    })
+    .await?;
+    if active {
+        check(exists(&l.join("doc.md")) && !exists(&l.join("c.md")), "moving the focus away did not commit the new name")?;
+    } else {
+        eprintln!("smoke:   window is not key; committing directly");
+        step(cx, "commit", |ws, w, cx| ws.commit_rename(w, cx)).await?;
+        check(exists(&l.join("doc.md")), "committing the edited name failed")?;
+    }
+    Ok(())
+}
+
+fn mouse_down(at: gpui::Point<gpui::Pixels>) -> gpui::MouseDownEvent {
+    gpui::MouseDownEvent { button: gpui::MouseButton::Left, position: at, modifiers: Default::default(), click_count: 1, first_mouse: false }
+}
+
+/// Where a Full-mode list was drawn.
+#[derive(Clone, Copy)]
+struct ListGeo {
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    row: f32,
+}
+
+impl ListGeo {
+    /// A point on the blank part of row `ix` (between the name and the columns).
+    fn at(&self, ix: usize) -> gpui::Point<gpui::Pixels> {
+        point(px(self.x + (self.w * 0.42).min(230.0)), px(self.y + (ix as f32 + 0.5) * self.row))
+    }
+}
+
+/// Mouse behaviour through the handlers the list's mouse events call: drag-select,
+/// clicking empty space, a plain click, and dropping a file onto a folder row.
+async fn mouse_phase(cx: &mut AsyncApp, left: &Path) -> Result<(), String> {
+    eprintln!("smoke: mouse phase");
+    std::fs::write(left.join("drag-me.txt"), "d").map_err(|e| e.to_string())?;
+    let l = left.to_path_buf();
+    step(cx, "prepare list", move |ws, w, cx| {
+        ws.navigate(0, l, None, w, cx);
+        let _ = ws.panels[0].tab_mut().reload(Workspace::opts(cx));
+        ws.activate_side(0, w, cx);
+        ws.run(Action::ViewModeFull, w, cx);
+        ws.panels[0].tab_mut().unselect_all();
+        ws.panels[0].tab_mut().set_cursor(0);
+        ws.reveal_cursor(0);
+    })
+    .await?;
+    pause(cx, 300).await;
+    let (geo, names) = step(cx, "read list geometry", |ws, _, cx| {
+        let b = ws.list_bounds[0].get();
+        let geo = ListGeo { x: b.origin.x.into(), y: b.origin.y.into(), w: b.size.width.into(), h: b.size.height.into(), row: Workspace::row_height(cx) };
+        (geo, ws.panels[0].tab().entries.iter().map(|e| e.name.clone()).collect::<Vec<_>>())
+    })
+    .await?;
+    eprintln!("smoke:   list at {:.0},{:.0} {:.0}x{:.0}: {names:?}", geo.x, geo.y, geo.w, geo.h);
+    check(names.len() >= 5 && names[0] == "sub", &format!("unexpected listing {names:?}"))?;
+
+    // Press on the blank part of row 1, drag down to row 3.
+    step(cx, "drag a selection band", move |ws, w, cx| {
+        ws.row_mouse_down(0, 1, false, &mouse_down(geo.at(1)), w, cx);
+        ws.mouse_moved(geo.at(2), true, w, cx);
+        ws.mouse_moved(point(px(geo.x + 60.0), px(geo.y + 3.4 * geo.row)), true, w, cx);
+    })
+    .await?;
+    shot(cx, "selection-band").await;
+    let selected = step(cx, "release the band", move |ws, _, cx| {
+        let dragging = ws.marquee.is_some();
+        ws.mouse_released(cx);
+        (dragging, ws.panels[0].tab().targets().into_iter().map(|e| e.name).collect::<Vec<_>>())
+    })
+    .await?;
+    check(selected.0 && selected.1 == names[1..=3], &format!("dragging over rows 1–3 selected {:?}", selected.1))?;
+
+    // Clicking empty space under the rows clears the selection.
+    let below = point(px(geo.x + 120.0), px(geo.y + (names.len() as f32 + 1.5) * geo.row));
+    check(f32::from(below.y) < geo.y + geo.h, "no empty space under the rows")?;
+    let n = step(cx, "click on empty space", move |ws, w, cx| {
+        ws.background_mouse_down(0, &mouse_down(below), w, cx);
+        ws.mouse_released(cx);
+        ws.panels[0].tab().selected.len()
+    })
+    .await?;
+    check(n == 0, &format!("clicking empty space left {n} item(s) selected"))?;
+
+    // A band dragged out from empty space selects what it crosses.
+    let n = step(cx, "band from empty space", move |ws, w, cx| {
+        ws.background_mouse_down(0, &mouse_down(below), w, cx);
+        ws.mouse_moved(point(px(geo.x + 60.0), px(geo.y + 2.5 * geo.row)), true, w, cx);
+        ws.mouse_released(cx);
+        ws.panels[0].tab().selected.len()
+    })
+    .await?;
+    check(n == names.len() - 2, &format!("a band from below up to row 2 selected {n} of {}", names.len()))?;
+
+    // Pressing a selected row keeps the selection (to drag it); releasing without moving
+    // leaves just that row. Pressing an unselected row selects only it right away.
+    let (held, n, cursor) = step(cx, "click a selected row", move |ws, w, cx| {
+        ws.run(Action::SelectAll, w, cx);
+        ws.row_mouse_down(0, 2, true, &mouse_down(geo.at(2)), w, cx);
+        let held = ws.panels[0].tab().selected.len();
+        ws.mouse_released(cx);
+        (held, ws.panels[0].tab().selected.len(), ws.panels[0].tab().cursor)
+    })
+    .await?;
+    check(held == names.len() && n == 0 && cursor == 2, &format!("click on a selected row: {held} kept while pressed, {n} after release, cursor {cursor}"))?;
+    let n = step(cx, "drag a selected row", move |ws, w, cx| {
+        ws.run(Action::SelectAll, w, cx);
+        ws.row_mouse_down(0, 2, true, &mouse_down(geo.at(2)), w, cx);
+        ws.mouse_moved(point(px(geo.x + 60.0), px(geo.y + 4.0 * geo.row)), true, w, cx);
+        ws.mouse_released(cx);
+        let n = ws.panels[0].tab().selected.len();
+        ws.panels[0].tab_mut().select_band(&Default::default(), [1]);
+        ws.row_mouse_down(0, 3, true, &mouse_down(geo.at(3)), w, cx);
+        (n, ws.panels[0].tab().selected.len())
+    })
+    .await?;
+    check(n == (names.len(), 0), &format!("dragging a selected row kept {} selected; pressing another row kept {}", n.0, n.1))?;
+
+    // Drop a file onto the folder in row 0, and a folder onto itself (ignored).
+    let (l, sub) = (left.to_path_buf(), left.join("sub"));
+    step(cx, "drop onto a folder", move |ws, w, cx| {
+        let files = crate::workspace::DraggedFiles { side: 0, paths: vec![l.join("drag-me.txt")] };
+        ws.drop_into_folder(0, sub.clone(), &files, w, cx);
+        let itself = crate::workspace::DraggedFiles { side: 0, paths: vec![sub.clone()] };
+        ws.drop_into_folder(0, sub.clone(), &itself, w, cx);
+    })
+    .await?;
+    wait_jobs(cx).await?;
+    check(exists(&left.join("sub/drag-me.txt")) && !exists(&left.join("drag-me.txt")), "dropping a file onto a folder did not move it there")?;
+    check(exists(&left.join("sub")) && !exists(&left.join("sub/sub")), "dropping a folder onto itself did something")?;
+    Ok(())
+}
+
+/// The right panel can be closed and brought back; the `..` row is optional.
+async fn panels_phase(cx: &mut AsyncApp) -> Result<(), String> {
+    eprintln!("smoke: panels phase");
+    let state = step(cx, "hide right panel", |ws, w, cx| {
+        ws.activate_side(1, w, cx);
+        ws.run(Action::ToggleRightPanel, w, cx);
+        (Workspace::dual(cx), ws.active)
+    })
+    .await?;
+    check(state == (false, 0), &format!("after hiding the right panel: shown {}, active side {}", state.0, state.1))?;
+    redraw_probes(cx).await?;
+    check(probe(cx, "main.card0").is_ok() && probe(cx, "main.card1").is_err(), "the right panel is still drawn after hiding it")?;
+    shot(cx, "one-panel").await;
+    keys(cx, &["tab"]).await?;
+    let active = step(cx, "tab with one panel", |ws, _, _| ws.active).await?;
+    check(active == 0, "Tab switched to the hidden panel")?;
+
+    let (first, any_parent) = step(cx, "parent row setting", |ws, _, cx| {
+        cx.global_mut::<AppState>().settings.view.show_parent_entry = true;
+        ws.reload_all(cx);
+        let first = ws.panels[0].tab().entries.first().map(|e| e.name.clone());
+        cx.global_mut::<AppState>().settings.view.show_parent_entry = false;
+        ws.reload_all(cx);
+        (first, ws.panels[0].tab().entries.iter().any(|e| e.is_parent()))
+    })
+    .await?;
+    check(first.as_deref() == Some("..") && !any_parent, "the '..' row does not follow its setting")?;
+
+    let dual = step(cx, "show right panel", |ws, w, cx| {
+        ws.run(Action::ToggleRightPanel, w, cx);
+        Workspace::dual(cx)
+    })
+    .await?;
+    check(dual, "the right panel did not come back")?;
+    redraw_probes(cx).await?;
+    check(probe(cx, "main.card1").is_ok(), "the right panel is not drawn after showing it again")
+}
+
+async fn terminal_text(cx: &mut AsyncApp) -> Result<String, String> {
+    let handle = cx.update(find_workspace).map_err(|e| e.to_string())?.ok_or("no workspace window")?;
+    handle
+        .update(cx, |ws, _, cx| match &ws.terminal {
+            Some(t) => t.read(cx).session.screen_text(),
+            None => format!("(no terminal; shown: {})", ws.terminal_open),
+        })
+        .map_err(|e| e.to_string())
+}
+
+async fn wait_terminal(cx: &mut AsyncApp, what: &str, ok: impl Fn(&str) -> bool) -> Result<(), String> {
+    let mut text = String::new();
+    for _ in 0..120 {
+        pause(cx, 100).await;
+        text = terminal_text(cx).await?;
+        if ok(&text) {
+            return Ok(());
+        }
+    }
+    Err(format!("the terminal never showed {what}; screen:\n{text}"))
+}
+
+/// The embedded terminal: opens in the panel's folder, runs command-line commands, takes
+/// typing, hides and comes back with ⌃` / ⌃O, and closes when the shell exits.
+async fn terminal_phase(cx: &mut AsyncApp, left: &Path) -> Result<(), String> {
+    eprintln!("smoke: terminal phase");
+    let l = left.to_path_buf();
+    check(step(cx, "cursor in left folder", cursor_to(0, l.clone(), "sub")).await?, "sub not listed")?;
+    keys(cx, &["ctrl-o"]).await?;
+    let opened = step(cx, "ctrl-o opens the terminal", |ws, w, cx| (ws.terminal_open, ws.terminal.as_ref().is_some_and(|t| t.read(cx).focus.is_focused(w)))).await?;
+    check(opened == (true, true), &format!("⌃O: terminal shown/focused = {opened:?}"))?;
+    let mut idle = false;
+    for _ in 0..100 {
+        pause(cx, 100).await;
+        idle = step(cx, "shell ready", |ws, _, cx| ws.terminal.as_ref().is_some_and(|t| t.read(cx).session.shell_in_foreground())).await?;
+        if idle {
+            break;
+        }
+    }
+    check(idle, "the shell never became ready")?;
+    let cwd = step(cx, "shell folder", |ws, _, cx| ws.terminal.as_ref().and_then(|t| t.read(cx).session.cwd())).await?;
+    check(cwd.and_then(|p| p.canonicalize().ok()) == left.canonicalize().ok(), "the shell did not start in the panel's folder")?;
+
+    step(cx, "run from the command line", |ws, w, cx| {
+        ws.command.update(cx, |c, cx| c.set_text("echo fc-smoke-$((6*7))", cx));
+        ws.execute_command(w, cx);
+    })
+    .await?;
+    wait_terminal(cx, "the command's output", |t| t.contains("fc-smoke-42")).await?;
+
+    keys(cx, &["e", "c", "h", "o", "space", "t", "y", "p", "e", "d", "enter"]).await?;
+    wait_terminal(cx, "typed input", |t| t.lines().any(|l| l.trim() == "typed")).await?;
+    step(cx, "colours", |ws, _, cx| {
+        if let Some(t) = &ws.terminal {
+            t.update(cx, |t, _| t.type_text("printf '\\033[1;32mgreen\\033[0m \\033[7minverse\\033[0m \\033[4munderline\\033[0m\\n'; ls -la\r"));
+        }
+    })
+    .await?;
+    wait_terminal(cx, "colour output", |t| t.contains("renamed.txt")).await?;
+    shot(cx, "terminal").await;
+    redraw_probes(cx).await?;
+    inside(cx, "main.terminal", "main.root", "terminal")?;
+
+    keys(cx, &["ctrl-`"]).await?;
+    let hidden = step(cx, "ctrl-` hides", |ws, w, _| (ws.terminal_open, ws.focus.is_focused(w))).await?;
+    check(hidden == (false, true), &format!("⌃` from the terminal: shown/panels focused = {hidden:?}"))?;
+    keys(cx, &["ctrl-o"]).await?;
+    let back = step(cx, "ctrl-o shows it again", |ws, _, _| ws.terminal_open).await?;
+    check(back, "⌃O did not bring the terminal back")?;
+    wait_terminal(cx, "the earlier output", |t| t.contains("renamed.txt")).await?;
+
+    keys(cx, &["e", "x", "i", "t", "enter"]).await?;
+    let mut closed = false;
+    for _ in 0..50 {
+        pause(cx, 100).await;
+        closed = step(cx, "shell exited", |ws, w, _| ws.terminal.is_none() && !ws.terminal_open && ws.focus.is_focused(w)).await?;
+        if closed {
+            break;
+        }
+    }
+    check(closed, "typing exit did not close the terminal")
+}
+
 fn right(b: gpui::Bounds<gpui::Pixels>) -> f32 {
     (b.origin.x + b.size.width).into()
 }
@@ -544,6 +882,14 @@ fn inside(cx: &mut AsyncApp, inner: &str, outer: &str, context: &str) -> Result<
 
 async fn clear_probes(cx: &mut AsyncApp) {
     let _ = cx.update(|cx| cx.global::<crate::probe::Probes>().0.borrow_mut().clear());
+}
+
+/// Clears the probes and draws a fresh frame of the main window.
+async fn redraw_probes(cx: &mut AsyncApp) -> Result<(), String> {
+    clear_probes(cx).await;
+    step(cx, "redraw", |_, w, _| w.refresh()).await?;
+    pause(cx, 250).await;
+    Ok(())
 }
 
 /// Every window at its minimum size: nothing may extend past its window's edge.

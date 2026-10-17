@@ -81,11 +81,13 @@ pub enum Location {
 pub struct ListOptions {
     pub show_hidden: bool,
     pub folders_first: bool,
+    /// List the synthetic `..` row at the top of every folder but the root.
+    pub show_parent: bool,
 }
 
 impl Default for ListOptions {
     fn default() -> Self {
-        ListOptions { show_hidden: false, folders_first: true }
+        ListOptions { show_hidden: false, folders_first: true, show_parent: true }
     }
 }
 
@@ -147,9 +149,10 @@ fn read_location(location: &Location, opts: ListOptions) -> io::Result<Vec<Entry
     match location {
         Location::Dir(dir) => {
             let mut entries = list_dir(dir, opts.show_hidden)?;
-            if let Some(parent) = parent_entry(dir) {
-                entries.push(parent);
-            }
+            if opts.show_parent
+                && let Some(parent) = parent_entry(dir) {
+                    entries.push(parent);
+                }
             Ok(entries)
         }
         Location::Results { root, items, .. } => Ok(items
@@ -404,6 +407,18 @@ impl Tab {
                 self.selected.insert(e.path.clone());
             }
         }
+    }
+
+    /// Rubber-band selection: the selection becomes `base` plus the rows in `indices`
+    /// (`..` and out-of-range rows are skipped).
+    pub fn select_band(&mut self, base: &HashSet<PathBuf>, indices: impl IntoIterator<Item = usize>) {
+        let mut selected = base.clone();
+        for ix in indices {
+            if let Some(e) = self.entries.get(ix).filter(|e| !e.is_parent()) {
+                selected.insert(e.path.clone());
+            }
+        }
+        self.selected = selected;
     }
 
     fn eligible(e: &Entry, files_only: bool) -> bool {
@@ -727,6 +742,30 @@ mod tests {
     }
 
     #[test]
+    fn parent_row_is_optional() {
+        let tmp = fixture();
+        let no_parent = ListOptions { show_parent: false, ..opts() };
+        let mut tab = Tab::new(tmp.path().join("docs"));
+        tab.reload(no_parent).unwrap();
+        assert_eq!(names(&tab), ["inner", "readme.txt"]);
+        assert_eq!(tab.targets()[0].name, "inner", "cursor starts on the first real item");
+
+        let mut panel = Panel::new(tmp.path().join("docs"));
+        panel.tab_mut().reload(no_parent).unwrap();
+        assert!(panel.go_up(no_parent).unwrap(), "going up still works without the row");
+        assert_eq!(panel.tab().working_dir(), tmp.path());
+        assert_eq!(panel.tab().cursor_entry().unwrap().name, "docs");
+
+        let empty = tmp.path().join("docs/inner");
+        let mut tab = Tab::new(empty);
+        tab.reload(no_parent).unwrap();
+        assert!(tab.entries.is_empty() && tab.cursor_entry().is_none() && tab.targets().is_empty());
+        tab.move_cursor(1, true);
+        tab.toggle_cursor_and_advance();
+        assert!(tab.selected.is_empty(), "an empty folder has nothing to select");
+    }
+
+    #[test]
     fn navigation_history_and_go_up_focus() {
         let tmp = fixture();
         let root = tmp.path().to_path_buf();
@@ -805,6 +844,15 @@ mod tests {
         assert_eq!(tab.targets().len(), 4);
         let s = tab.stats();
         assert_eq!((s.selected_files, s.selected_dirs, s.selected_bytes), (3, 1, 7));
+
+        // Rubber band: replaces the selection, or adds to a kept base; `..` never joins.
+        tab.select_band(&HashSet::new(), [0, 1, 2, 99]);
+        assert_eq!(tab.targets().iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["docs", "a.txt"]);
+        let base: HashSet<PathBuf> = [tmp.path().join("c.txt")].into();
+        tab.select_band(&base, [3]);
+        assert_eq!(tab.targets().iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["b.md", "c.txt"]);
+        tab.select_band(&base, []);
+        assert_eq!(tab.selected, base, "shrinking the band back to nothing restores the base");
     }
 
     #[test]

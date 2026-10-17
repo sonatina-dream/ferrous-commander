@@ -23,6 +23,9 @@ use crate::workspace::{dirs_home, Workspace};
 const FPS: u32 = 30;
 
 pub fn run(out: PathBuf, cx: &mut App) {
+    // The tour shows both panels.
+    cx.global_mut::<AppState>().settings.view.show_right_panel = true;
+    cx.refresh_windows();
     cx.spawn(async move |cx: &mut AsyncApp| {
         let result = tour(&out, cx).await;
         match &result {

@@ -103,6 +103,29 @@ pub fn open_in_preview(path: &Path) -> io::Result<()> {
     open_with(path, "Preview")
 }
 
+/// Current working directory of process `pid` (the embedded terminal's shell).
+#[cfg(target_os = "macos")]
+pub fn process_cwd(pid: u32) -> Option<PathBuf> {
+    use std::os::unix::ffi::OsStrExt;
+    let mut info: libc::proc_vnodepathinfo = unsafe { std::mem::zeroed() };
+    let size = std::mem::size_of::<libc::proc_vnodepathinfo>() as libc::c_int;
+    // SAFETY: `info` is a writable buffer of exactly `size` bytes.
+    let n = unsafe { libc::proc_pidinfo(pid as libc::c_int, libc::PROC_PIDVNODEPATHINFO, 0, (&mut info as *mut libc::proc_vnodepathinfo).cast(), size) };
+    if n != size {
+        return None;
+    }
+    // SAFETY: `vip_path` is a MAXPATHLEN buffer of C chars split into rows; the kernel
+    // NUL-terminates it.
+    let bytes: &[u8] = unsafe { std::slice::from_raw_parts(info.pvi_cdir.vip_path.as_ptr().cast::<u8>(), 32 * 32) };
+    let len = bytes.iter().position(|&b| b == 0)?;
+    (len > 0).then(|| PathBuf::from(std::ffi::OsStr::from_bytes(&bytes[..len])))
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn process_cwd(_pid: u32) -> Option<PathBuf> {
+    None
+}
+
 /// Expands `cd` targets typed in the command line: `~`, relative, `..`.
 pub fn resolve_cd_target(current: &Path, arg: &str) -> PathBuf {
     let arg = arg.trim();
@@ -133,5 +156,20 @@ mod tests {
         assert_eq!(resolve_cd_target(cur, "'lib dir'"), PathBuf::from("/usr/local/bin/lib dir"));
         assert_eq!(resolve_cd_target(cur, "~"), dirs::home_dir().unwrap());
         assert_eq!(resolve_cd_target(cur, ""), dirs::home_dir().unwrap());
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn working_directory_of_a_process() {
+        let ours = std::env::current_dir().unwrap().canonicalize().unwrap();
+        assert_eq!(process_cwd(std::process::id()).map(|p| p.canonicalize().unwrap()), Some(ours));
+
+        let t = tempfile::tempdir().unwrap();
+        let mut child = Command::new("/bin/sleep").arg("5").current_dir(t.path()).spawn().unwrap();
+        let cwd = process_cwd(child.id());
+        let _ = child.kill();
+        let _ = child.wait();
+        assert_eq!(cwd.map(|p| p.canonicalize().unwrap()), Some(t.path().canonicalize().unwrap()));
+        assert_eq!(process_cwd(u32::MAX >> 1), None, "no such process");
     }
 }

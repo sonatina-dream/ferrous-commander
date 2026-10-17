@@ -130,6 +130,7 @@ define_actions! {
     ToggleTabLock => "fc.ToggleTabLock", Panels, "Cycle tab lock";
     SwapPanels => "TCXSwapPanelsAction", Panels, "Swap panels";
     EqualizePanels => "TCXEqualizePanelsAction", Panels, "Equalize panels";
+    ToggleRightPanel => "fc.ToggleRightPanel", Panels, "Show right panel";
     NewWindow => "TCXNewWindowAction", Panels, "New window";
     // Selection
     SelectItem => "TCXSelectItemAction", Selection, "Toggle selection";
@@ -166,7 +167,8 @@ define_actions! {
     // Other
     Search => "TCXSearchAction", Other, "Search…";
     SearchSpotlight => "TCXSearchSpotlightAction", Other, "Search with Spotlight…";
-    ShowTerminal => "TCXShowTerminal", Other, "Open in Terminal";
+    ShowTerminal => "TCXShowTerminal", Other, "Show terminal";
+    OpenTerminalApp => "fc.OpenTerminalApp", Other, "Open in Terminal app";
     CopyItemName => "TCXCopyItemNameAction", Other, "Copy name to clipboard";
     CopyItemPath => "TCXCopyItemPathAction", Other, "Copy path to clipboard";
     PasteItemName => "TCXPasteItemNameAction", Other, "Paste name to command line";
@@ -510,6 +512,11 @@ pub const EXTRA_BINDINGS: &[(&str, Action)] = &[
     ("alt-cmd-backspace", Action::DeleteForce),
 ];
 
+/// Where this app's defaults depart from Commander One's: F2 renames in place, as in
+/// Finder and Explorer, instead of adding to the queue (the Copy and Move dialogs keep
+/// their "Add to Queue" button). Each chord becomes its command's primary shortcut.
+pub const OVERRIDE_BINDINGS: &[(&str, Action)] = &[("f2", Action::Rename)];
+
 fn parse_table(table: &[(&str, Action)]) -> Vec<Binding> {
     table.iter().map(|(k, a)| Binding { chord: Chord::parse(k).expect("valid default chord"), action: *a }).collect()
 }
@@ -520,9 +527,15 @@ impl Keymap {
         Keymap { bindings: parse_table(DEFAULT_BINDINGS) }
     }
 
-    /// This app's defaults: Commander One's map plus the Finder-style extras.
+    /// This app's defaults: Commander One's map with the overrides, plus the Finder-style extras.
     pub fn defaults() -> Keymap {
-        Keymap::commander_one_defaults().with_additions()
+        let mut km = Keymap::commander_one_defaults();
+        for b in parse_table(OVERRIDE_BINDINGS) {
+            km.bindings.retain(|x| x.chord != b.chord);
+            let at = km.bindings.iter().position(|x| x.action == b.action).unwrap_or(km.bindings.len());
+            km.bindings.insert(at, b);
+        }
+        km.with_additions()
     }
 
     /// Adds each extra binding whose command has no key yet and whose chord is free.
@@ -667,6 +680,16 @@ mod tests {
         assert_eq!(merged.action_for(&Chord::parse("cmd-v").unwrap()), Some(Action::View));
         assert!(merged.chords_for(Action::PasteFiles).is_empty());
         assert_eq!(merged.clone().with_additions(), merged, "idempotent");
+    }
+
+    #[test]
+    fn f2_renames_by_default() {
+        let km = Keymap::defaults();
+        let f2 = Chord::parse("f2").unwrap();
+        assert_eq!(km.action_for(&f2), Some(Action::Rename));
+        assert_eq!(km.chords_for(Action::Rename), [&f2, &Chord::parse("shift-f6").unwrap()], "F2 is primary, ⇧F6 still works");
+        assert!(km.chords_for(Action::Queue).is_empty());
+        assert_eq!(Keymap::commander_one_defaults().action_for(&f2), Some(Action::Queue), "the observed map is untouched");
     }
 
     #[test]

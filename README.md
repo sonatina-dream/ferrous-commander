@@ -68,18 +68,26 @@ The interface ("Aurora") is built entirely with GPUI:
 
 ## What it does
 
-- **Two panels with tabs.** Each tab has its own folder, view mode, sort order, history
-  and lock state: unlocked, locked (navigating opens a new tab), or locked with folder
-  changes allowed. Drag the splitter to resize; ⌥E equalizes and ⌥⇧E swaps the panels.
+- **One panel or two, with tabs.** One panel fills the window by default. Turn on the right
+  panel in *Settings ▸ View ▸ Right panel* (or *View ▸ Show right panel*); its × button
+  closes it again. Each tab has its own folder, view mode, sort order, history and lock
+  state: unlocked, locked (navigating opens a new tab), or locked with folder changes
+  allowed. Drag the splitter to resize; ⌥E equalizes and ⌥⇧E swaps the panels.
 - **Three view modes.** Full (columns you can choose by right-clicking the header), Brief
   (multi-column names) and Thumbs (image previews).
 - **Sorting.** By name (natural order), extension, size (including computed folder sizes),
-  modified, created, added, opened, kind and permissions. Folders can sit on top; `..`
-  always comes first.
+  modified, created, added, opened, kind and permissions. Folders can sit on top. Folders
+  have no `..` row (Backspace, ⌘↑ and the title-bar arrow go up); *Settings ▸ View* brings
+  it back, always first.
 - **Selection.** Cursor plus a separate set of marked items: Space marks the item and
   computes a folder's size, `+`/`-` select or unselect by mask (`*.jpg;*.png`), `*`
-  inverts, ⌘A selects all, ⇧-arrows extend, and ⌘-click / ⇧-click work with the mouse.
-  Typing a name jumps to it.
+  inverts, ⌘A selects all, ⇧-arrows extend. Typing a name jumps to it.
+- **Mouse.** A click selects one item, ⌘-click toggles and ⇧-click extends. Drag from the
+  blank part of a row, or from empty space, to select everything the band touches (hold ⌘
+  or ⇧ to add to the selection). Clicking empty space clears the selection.
+- **Rename in place.** F2 (or ⇧F6, or *Rename* in the context menu) turns the name into a
+  text field with the name before the extension selected. ↩ renames, Esc cancels, and
+  clicking elsewhere keeps the new name. Typing a path moves the item there.
 - **Finder-style clipboard.** ⌘C copies the selected files, ⌘X cuts them (they show dimmed),
   and ⌘V pastes into the current folder. It uses the macOS pasteboard, so you can copy
   in Finder and paste here, or the other way round. ⌥⌘V pastes as a move. Pasting a
@@ -91,7 +99,8 @@ The interface ("Aurora") is built entirely with GPUI:
     into a new folder.
   - Name conflicts offer Replace, Replace All, Skip, Skip All, Keep Both, Merge for
     folders, or Cancel. Errors offer Retry, Skip, Skip All or Abort.
-  - F2 adds an operation to the queue, where queued operations run one at a time.
+  - *Add to Queue* in the Copy and Move dialogs queues an operation; queued operations run
+    one at a time.
   - Delete to the Trash (F8, ⌦, ⌘⌫) or permanently (⇧F8). New folder (F7, nested paths
     allowed, or "with selection"), new file (⇧F4), duplicate (⌘D), symlink (⌘L) and
     alias (⌥⌘L).
@@ -108,14 +117,23 @@ The interface ("Aurora") is built entirely with GPUI:
 - **Drives and places.** A drive popup per panel (⌥F1 / ⌥F2) with free space, eject (⌘E),
   favorites (⌃⌘F), folder history, a clickable path bar, Go to Folder (⇧⌘G) and Connect
   to Server (⌘K, mounted by macOS).
-- **Command line.** `cd` changes the panel's folder; any other command runs in a new
-  Terminal window in that folder. ⌃↩ pastes the item's name, ⌃⇧↩ pastes its path, ↑/↓
-  browse history, and ⌃O opens Terminal.
+- **Terminal.** ⌃O, ⌃` or the terminal button in the title bar opens a terminal below the
+  panels, running your login shell in the current folder; the same keys hide it again.
+  Drag its top edge to resize. *cd to panel* moves the shell to the panel's folder, *Show
+  in panel* does the opposite, and *Terminal app* opens Terminal.app there. Colours,
+  full-screen programs (`less`, `vim`, `top`), scrollback (wheel, ⇧PageUp/PageDown),
+  selecting with the mouse, ⌘C and ⌘V all work. `exit` closes it. The emulation is
+  [`alacritty_terminal`](https://crates.io/crates/alacritty_terminal).
+- **Command line.** `cd` changes the panel's folder; any other command runs in the
+  terminal, in the panel's folder. ⌃↩ pastes the item's name, ⌃⇧↩ pastes its path, and ↑/↓
+  browse history.
 - **Settings (⌘,).** General, View, Appearance (six original colour presets plus
   "System"), Hotkeys (rebind any command, primary and secondary key) and Advanced
   (confirmations, what to save on quit).
-- **Live refresh.** Panels update when files change (FSEvents), and drag-and-drop works
-  between panels (hold ⌘ to move) and from Finder.
+- **Live refresh.** Panels update when files change (FSEvents).
+- **Drag and drop.** Drag items by their icon or name. Dropped on a folder they move there
+  (copied when the folder is on another volume; hold ⌥ to copy, ⌘ to move). Dropped on the
+  other panel they are copied (hold ⌘ to move). Files dragged in from Finder are copied.
 - **Keyboard compatibility.** The default key map is the one observed in Commander One:
   all 87 bindings. *Help ▸ Import Commander One Shortcuts* reads an existing Commander One
   key map from its preferences.
@@ -123,9 +141,10 @@ The interface ("Aurora") is built entirely with GPUI:
 ### Additions beyond Commander One's defaults
 
 ⌘C / ⌘X / ⌘V / ⌥⌘V (clipboard), ⌘⌫ / ⌥⌘⌫ (Trash / delete immediately) and ⌘P (command
-palette). These are part of the default key map and can be rebound in Settings ▸
-Hotkeys. Fixed keys: Backspace goes to the enclosing folder, ⌘⇧. toggles hidden files,
-⌘W closes the tab, and Esc clears the type-ahead or the selection.
+palette). F2 renames in place; in Commander One it adds to the queue. These are part of
+the default key map and can be rebound in Settings ▸ Hotkeys. Fixed keys: Backspace goes
+to the enclosing folder, ⌘⇧. toggles hidden files, ⌘W closes the tab, ⌃` shows or hides
+the terminal, and Esc clears the type-ahead or the selection.
 
 ## Recording the media
 
@@ -149,18 +168,21 @@ SPEC.md          Behavioral specification and acceptance tests
 ## Tests
 
 ```sh
-cargo test --workspace                 # 80 tests (76 core, 4 front end)
+cargo test --workspace                 # 95 tests (80 core, 15 front end)
 FC_SMOKE=1 cargo run -p fc-app         # end-to-end run of the real window, then quits
 ```
 
 `crates/fc-core/tests/observed_keymap.rs` checks the default key map against the data
 recorded from Commander One at runtime.
 
-The smoke run drives the actual GPUI window inside a throw-away sandbox folder. It covers
-view modes, tabs, selection, dialogs, menus, copy with a conflict prompt, rename,
-create, delete, compress, the command palette, the viewer, search and settings windows,
-and real keystrokes sent through GPUI's dispatcher (including ⌘P → type → ↩). It prints
-`SMOKE OK` or `SMOKE FAIL: …` on stderr.
+The smoke run drives the actual GPUI window inside a throw-away sandbox folder, with its
+own settings folder unless `FC_CONFIG_DIR` is set. It covers view modes, tabs, selection,
+dialogs, menus, copy with a conflict prompt, rename in place, create, delete, compress,
+the command palette, the viewer, search and settings windows, band selection, dropping
+onto folders, closing the right panel, the terminal, and real keystrokes sent through
+GPUI's dispatcher (including ⌘P → type → ↩ and F2 → type → ↩). It prints `SMOKE OK` or
+`SMOKE FAIL: …` on stderr. With `FC_SMOKE_SHOTS=<folder>` it also saves screenshots of
+the new UI states there.
 
 ## Not included
 
@@ -168,8 +190,7 @@ These Commander One features are out of scope, as listed in SPEC.md §10:
 
 - FTP/SFTP/WebDAV/S3 and other cloud connections. ⌘F opens Connect to Server instead.
 - MTP and iOS devices, browsing archives as folders, and RAR/7z.
-- Folder encryption, the process viewer and the embedded terminal emulator. ⌃O and the
-  command line use Terminal.app instead.
+- Folder encryption and the process viewer.
 
 ### Known limitations
 

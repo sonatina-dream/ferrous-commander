@@ -73,6 +73,10 @@ pub struct ViewSettings {
     pub show_disk_info: bool,
     pub show_path_bar: bool,
     pub show_selection_info: bool,
+    /// Second (right) file panel. Off by default: one panel fills the window.
+    pub show_right_panel: bool,
+    /// The `..` row at the top of each folder (Backspace and ⌘↑ go up either way).
+    pub show_parent_entry: bool,
 }
 
 impl Default for ViewSettings {
@@ -93,6 +97,8 @@ impl Default for ViewSettings {
             show_disk_info: true,
             show_path_bar: true,
             show_selection_info: true,
+            show_right_panel: false,
+            show_parent_entry: false,
         }
     }
 }
@@ -207,6 +213,8 @@ pub struct Session {
     pub split: f32,
     pub command_history: Vec<String>,
     pub window: Option<WindowFrame>,
+    /// Height of the embedded terminal in points.
+    pub terminal_height: f32,
 }
 
 impl Default for Session {
@@ -218,6 +226,7 @@ impl Default for Session {
             split: 0.5,
             command_history: Vec::new(),
             window: None,
+            terminal_height: 240.0,
         }
     }
 }
@@ -303,7 +312,11 @@ impl Settings {
     }
 
     pub fn list_options(&self) -> crate::panel::ListOptions {
-        crate::panel::ListOptions { show_hidden: self.view.show_hidden, folders_first: self.view.folders_on_top }
+        crate::panel::ListOptions {
+            show_hidden: self.view.show_hidden,
+            folders_first: self.view.folders_on_top,
+            show_parent: self.view.show_parent_entry,
+        }
     }
 }
 
@@ -369,6 +382,8 @@ mod tests {
         let partial = Settings::load_from(t.path());
         assert!(!partial.general.move_to_trash);
         assert!(partial.general.folder_size_on_space, "missing keys take defaults");
+        assert!(!partial.view.show_right_panel && !partial.view.show_parent_entry, "one panel, no `..` row by default");
+        assert!(!partial.list_options().show_parent);
         assert_eq!(Settings::load_from(&t.path().join("missing")), Settings::default());
     }
 
@@ -392,6 +407,7 @@ mod tests {
             split: 0.4,
             command_history: vec!["ls -la".into()],
             window: Some(WindowFrame { x: 10.0, y: 20.0, width: 900.0, height: 600.0 }),
+            terminal_height: 300.0,
         };
         session.save_to(r).unwrap();
         let back = Session::load_from(r);
