@@ -82,6 +82,7 @@ pub const PROMPT: &str = "icons/prompt.svg";
 pub const FOLDER_OPEN: &str = "icons/folder-open.svg";
 pub const SCISSORS: &str = "icons/scissors.svg";
 pub const CLIPBOARD: &str = "icons/clipboard.svg";
+pub const SUNBURST: &str = "icons/sunburst.svg";
 
 impl AssetSource for Assets {
     fn load(&self, path: &str) -> Result<Option<Cow<'static, [u8]>>> {
@@ -145,6 +146,7 @@ impl AssetSource for Assets {
             FOLDER_OPEN => icon!(r#"<path d="M3 18.5V6a1.5 1.5 0 0 1 1.5-1.5h4.3l2 2.3H18a1.5 1.5 0 0 1 1.5 1.5V10"/><path d="M3 18.5l2.6-7.2A1.5 1.5 0 0 1 7 10.3h13.4a1 1 0 0 1 .9 1.3L19 18.5z"/>"#),
             SCISSORS => icon!(r#"<circle cx="6.5" cy="6.5" r="2.8"/><circle cx="6.5" cy="17.5" r="2.8"/><path d="M8.6 8.4L20 18M8.6 15.6L20 6"/>"#),
             CLIPBOARD => icon!(r#"<rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 4.5V3.5h6v1M9 4.5h6v2.5H9z"/><path d="M8.5 12h7M8.5 15.5h5"/>"#),
+            SUNBURST => icon!(r#"<circle cx="12" cy="12" r="3"/><path d="M12 6a6 6 0 0 1 6 6M17.2 15a6 6 0 0 1-10.4 0M6 12a6 6 0 0 1 3-5.2M12 2.5a9.5 9.5 0 0 1 9.5 9.5M20.2 16.8a9.5 9.5 0 0 1-5.5 4.3"/>"#),
             _ => return Ok(None),
         };
         Ok(Some(Cow::Borrowed(svg.as_bytes())))

@@ -6,6 +6,9 @@ observed runtime behavior. It describes *behavior only*. No code, artwork, nibs,
 other assets were copied. The implementation in this repository (`crates/`) is written from
 this document alone.
 
+The Disk Map tool, a disk-usage analyzer added on top of this file manager, has its own
+specification in [SPEC-DiskMap.md](SPEC-DiskMap.md).
+
 The target was the notarized DMG from the vendor CDN
 (`cdn.electronic.us/products/commander/mac/download/commander.dmg`,
 sha256 `ccdada39…c9c9`). The main executable is universal (x86_64 + arm64), sha256 `56dc8044…88e5`.

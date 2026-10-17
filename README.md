@@ -6,6 +6,9 @@ Commander One 3.18, derived by reverse-engineering the shipped app with REA. See
 [SPEC.md](SPEC.md) for the specification and [docs/evidence/](docs/evidence/) for the
 observations it rests on. No code, artwork or resources from Commander One are included.
 
+It also comes with **Disk Map**, a disk-usage analyzer in its own window, built the same way
+from a clean-room specification of DaisyDisk 4.34.2 ([SPEC-DiskMap.md](SPEC-DiskMap.md)).
+
 ![Ferrous Commander demo](docs/media/ferrous-commander-demo.gif)
 
 [Full demo video (MP4)](docs/media/ferrous-commander-demo.mp4)
@@ -19,6 +22,7 @@ observations it rests on. No code, artwork or resources from Commander One are i
 | ![Conflict prompt](docs/media/07-conflict.png) | ![Job progress](docs/media/08-job-progress.png) |
 | ![Silver theme](docs/media/09-silver-theme.png) | ![Viewer](docs/media/11-viewer-dark.png) |
 | ![Settings: Hotkeys](docs/media/13-settings-hotkeys.png) | ![Search](docs/media/14-search.png) |
+| ![Disk Map](docs/media/20-disk-map.png) | ![Disk Map collector](docs/media/21-disk-map-collector.png) |
 
 The screenshots and video are recorded by `scripts/demo.sh`. It runs the app on generated
 sample data with a throw-away home folder, and captures only the app's own windows.
@@ -55,8 +59,8 @@ The interface ("Aurora") is built entirely with GPUI:
   pulses when you switch panels.
 - **Gliding cursor.** In Full mode the cursor highlight is a spring-animated pill that
   glides between rows. Rows fade in when you open a folder.
-- **File tiles.** Colour-coded tiles show the file type (folders, apps, images, media,
-  archives, code, documents, PDFs, links, executables). Marked items get a check badge,
+- **File tiles.** Colour-coded tiles show the file type (folders, images, media, archives,
+  code, documents, PDFs, links, executables). Applications show their real icon. Marked items get a check badge,
   and an inline bar shows each item's size relative to the largest in the folder.
 - **Readable details.** Clickable breadcrumb chips with a favorite star, friendly dates
   ("Today 14:03"), and a footer showing the item under the cursor plus selection and
@@ -136,17 +140,55 @@ The interface ("Aurora") is built entirely with GPUI:
 - **Drag and drop.** Drag items by their icon or name. Dropped on a folder they move there
   (copied when the folder is on another volume; hold ⌥ to copy, ⌘ to move). Dropped on the
   other panel they are copied (hold ⌘ to move). Files dragged in from Finder are copied.
+- **Disk Map (⇧⌘M).** See where the space went and clean it up, in a separate window (see
+  [below](#disk-map)).
 - **Keyboard compatibility.** The default key map is the one observed in Commander One:
   all 87 bindings. *Help ▸ Import Commander One Shortcuts* reads an existing Commander One
   key map from its preferences.
 
 ### Additions beyond Commander One's defaults
 
-⌘C / ⌘X / ⌘V / ⌥⌘V (clipboard), ⌘⌫ / ⌥⌘⌫ (Trash / delete immediately) and ⌘P (command
-palette). F2 renames in place; in Commander One it adds to the queue. These are part of
+⌘C / ⌘X / ⌘V / ⌥⌘V (clipboard), ⌘⌫ / ⌥⌘⌫ (Trash / delete immediately), ⌘P (command
+palette) and ⇧⌘M (Disk Map). F2 renames in place; in Commander One it adds to the queue. These are part of
 the default key map and can be rebound in Settings ▸ Hotkeys. Fixed keys: Backspace goes
 to the enclosing folder, ⌘⇧. toggles hidden files, ⌘W closes the tab, ⌃` shows or hides
 the terminal, and Esc clears the type-ahead or the selection.
+
+## Disk Map
+
+A disk-usage analyzer modelled on DaisyDisk. It opens in its own window, so the panels,
+dialogs and shortcuts of the main window work exactly as before. Open it with **⇧⌘M**,
+*Commands ▸ Disk Map…*, the command palette, or the sunburst button in the title bar.
+
+![Disks and Folders](docs/media/19-disk-map-start.png)
+
+- **Disks and Folders.** Scan the active panel's folder (or the one folder you marked), your
+  home folder, any folder you choose, or a whole disk. Each disk shows a capacity gauge with
+  used, free and purgeable space. You can also drop a folder from Finder or from a panel.
+- **Fast scan.** Every file is counted by its size on disk, using one thread per core. Hard
+  links count once, symlinks are not followed, and other volumes mounted inside the folder
+  are skipped. Folders the app may not read are marked with a lock, and the window offers a
+  shortcut to *Full Disk Access*.
+- **Sunburst.** The centre is the current folder, and each ring is one level deeper. Folders
+  are coloured, and a folder's contents share its colour family. Files are grey. Items too
+  small to see are merged into translucent "smaller objects" segments. Point at a folder to
+  list its contents in the sidebar. Click it to go inside, and click the centre to go back
+  up. ⌘-click shows the item in Finder, and right-clicking opens a menu with *Show in Panel*,
+  Quick Look, Terminal and rescanning.
+- **Sidebar.** The pointed folder's items, largest first, with sizes and colour swatches that
+  match the map. Small items are grouped into "smaller objects…", which expands on click.
+  At a disk's root, extra rows show *purgeable* and *hidden* space with an explanation.
+- **Collector.** Drag items onto the strip at the bottom, or press ⌘⌫, to collect them.
+  Collected items leave the map, so you can see what deleting them would change. *Delete*
+  starts a 5-second countdown that you can stop, then moves the items to the Trash or, if
+  you switch the mode to *Delete immediately*, removes them for good. System folders and
+  your home folder cannot be collected.
+- **Keys.** ↑/↓ to move through the list, ↩ to open, ⌘↑ or ⌫ to go up, ⌘[ / ⌘] for
+  back/forward, Space for Quick Look, ⌘R to rescan the current folder, ⇧⌘R to rescan
+  everything, ⇧⌘↑ for Disks and Folders, and ⌘O to scan a folder.
+
+Unlike DaisyDisk, it has no administrator scan, cloud drives, snapshot listing or saved
+scans. Deleting goes to the Trash unless you choose otherwise.
 
 ## Recording the media
 
@@ -161,16 +203,20 @@ This writes the PNG screenshots, `ferrous-commander-demo.mp4` and a GIF preview 
 
 ```
 crates/fc-core   UI-independent logic: listing, sorting, selection, tabs and history, key map,
-                 file operations, job queue, search, archives, volumes, settings, themes
-crates/fc-app    GPUI front end: window, panels, dialogs, menus, viewer, search, settings
-docs/evidence    Data derived during reverse engineering (decoded key map, nib wiring, …)
+                 file operations, job queue, search, archives, volumes, settings, themes,
+                 disk-usage scanning and sunburst layout (diskmap.rs)
+crates/fc-app    GPUI front end: window, panels, dialogs, menus, viewer, search, settings,
+                 Disk Map window (diskmap.rs)
+docs/evidence    Data derived during reverse engineering (decoded key map, nib wiring, …;
+                 daisydisk/ for Disk Map)
 SPEC.md          Behavioral specification and acceptance tests
+SPEC-DiskMap.md  Disk Map specification and acceptance tests
 ```
 
 ## Tests
 
 ```sh
-cargo test --workspace                 # 95 tests (80 core, 15 front end)
+cargo test --workspace                 # 111 tests (96 core, 15 front end)
 FC_SMOKE=1 cargo run -p fc-app         # end-to-end run of the real window, then quits
 ```
 
@@ -181,7 +227,9 @@ The smoke run drives the actual GPUI window inside a throw-away sandbox folder, 
 own settings folder unless `FC_CONFIG_DIR` is set. It covers view modes, tabs, selection,
 dialogs, menus, copy with a conflict prompt, rename in place, create, delete, compress,
 the command palette, the viewer, search and settings windows, band selection, dropping
-onto folders, closing the right panel, the terminal, and real keystrokes sent through
+onto folders, closing the right panel, the terminal, the Disk Map (scan, drill down, collect
+and delete, and a single real click on a Scan button), application icons, the cursor
+highlight staying on its row through fast scrolling, and real keystrokes sent through
 GPUI's dispatcher (including ⌘P → type → ↩ and F2 → type → ↩). It prints `SMOKE OK` or
 `SMOKE FAIL: …` on stderr. With `FC_SMOKE_SHOTS=<folder>` it also saves screenshots of
 the new UI states there.

@@ -145,3 +145,55 @@ impl Frame {
         }
     }
 }
+
+/// Kinds of mouse event [`post_mouse`] can send.
+#[derive(Clone, Copy)]
+pub enum MouseKind {
+    Move,
+    LeftDown,
+    LeftUp,
+}
+
+/// Posts a real mouse event for `window` to this app's own event queue, so it travels
+/// through AppKit and GPUI exactly like a click on the hardware would (smoke run).
+/// `at` is in GPUI window coordinates.
+pub fn post_mouse(window: &Window, kind: MouseKind, at: gpui::Point<gpui::Pixels>, clicks: isize) -> bool {
+    use objc::runtime::{Object, NO};
+    use objc::{class, msg_send, sel, sel_impl};
+
+    #[repr(C)]
+    #[derive(Clone, Copy)]
+    struct NSPoint {
+        x: f64,
+        y: f64,
+    }
+
+    let Some(number) = window_number(window) else { return false };
+    let height: f32 = window.viewport_size().height.into();
+    // AppKit window coordinates start at the bottom left.
+    let location = NSPoint { x: f32::from(at.x) as f64, y: (height - f32::from(at.y)) as f64 };
+    let event_type: usize = match kind {
+        MouseKind::LeftDown => 1,
+        MouseKind::LeftUp => 2,
+        MouseKind::Move => 5,
+    };
+    // SAFETY: builds an autoreleased NSEvent and hands it to the shared NSApplication.
+    unsafe {
+        let event: *mut Object = msg_send![class!(NSEvent),
+            mouseEventWithType: event_type
+            location: location
+            modifierFlags: 0usize
+            timestamp: 0.0f64
+            windowNumber: number as isize
+            context: std::ptr::null_mut::<Object>()
+            eventNumber: 0isize
+            clickCount: clicks
+            pressure: 1.0f32];
+        if event.is_null() {
+            return false;
+        }
+        let app: *mut Object = msg_send![class!(NSApplication), sharedApplication];
+        let _: () = msg_send![app, postEvent: event atStart: NO];
+    }
+    true
+}

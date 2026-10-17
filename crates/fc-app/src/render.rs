@@ -10,6 +10,7 @@ use gpui::{
     canvas, div, ease_out_quint, img, linear_color_stop, linear_gradient, point, prelude::*, px, relative,
     Animation, AnimationExt, AnyElement, BoxShadow, Context, ExternalPaths, FontWeight, MouseButton,
     MouseDownEvent, MouseMoveEvent, ObjectFit, ScrollWheelEvent, SharedString, Window,
+    Bounds, Hsla, size,
 };
 
 use fc_core::format::{self, SizeMode};
@@ -264,6 +265,7 @@ impl Workspace {
             .child(segmented)
             .child(div().w(px(6.)))
             .child(nav("tb-hidden", if hidden { icons::EYE } else { icons::HIDDEN }, Action::ToggleHidden, true, hidden, c, cx))
+            .child(nav("tb-diskmap", icons::SUNBURST, Action::DiskMap, true, false, c, cx))
             .child(nav("tb-term", icons::TERMINAL, Action::ShowTerminal, true, self.terminal_open, c, cx))
             .child(
                 div()
@@ -734,7 +736,7 @@ impl Workspace {
 
             let editor = self.rename_field(side, &e.path, &c);
             let renaming = editor.is_some();
-            let tile = file_tile(kind, 22., &c, on_pill).relative().when(marked, |d| d.child(check_badge(&c)));
+            let tile = look::entry_tile(&e.path, kind, 22., &c, on_pill, cx).relative().when(marked, |d| d.child(check_badge(&c)));
             let label: AnyElement = match editor {
                 Some(field) => field.into_any_element(),
                 None => div()
@@ -935,7 +937,7 @@ impl Workspace {
                     .min_w(px(0.))
                     .overflow_hidden()
                     .when(renaming, |d| d.flex_1())
-                    .child(file_tile(look::kind_of(&e), 18., &c, on_pill).relative().when(marked, |d| d.child(check_badge(&c))))
+                    .child(look::entry_tile(&e.path, look::kind_of(&e), 18., &c, on_pill, cx).relative().when(marked, |d| d.child(check_badge(&c))))
                     .child(label);
                 let row = div()
                     .id(("brief", ix))
@@ -1002,7 +1004,7 @@ impl Workspace {
                         .child(img(e.path.clone()).size_full().object_fit(ObjectFit::Cover))
                         .into_any_element()
                 } else {
-                    file_tile(kind, 60., &c, on_pill).into_any_element()
+                    look::entry_tile(&e.path, kind, 60., &c, on_pill, cx).into_any_element()
                 };
                 let meta = if e.is_parent() {
                     String::new()
@@ -1084,23 +1086,40 @@ impl Workspace {
             }
         };
 
-        // The gliding cursor (Full mode): drawn behind the rows, positioned from the spring
-        // and the list's scroll offset.
+        // The gliding cursor (Full mode), drawn behind the rows from the spring and the list's
+        // scroll offset. It is placed while painting, after the list has clamped that offset:
+        // placed while rendering, it jumped off its row whenever a fast scroll overshot the
+        // ends of the list (the wheel handler adds the delta unclamped).
         let pill = (mode == ViewMode::Full && n > 0 && self.panels[side].tab().cursor_visible).then(|| {
-            let offset: f32 = self.scroll[side].0.borrow().base_handle.offset().y.into();
-            let top = self.cursor_spring[side].value * row_h + offset;
-            div()
-                .absolute()
-                .left(px(6.))
-                .right(px(6.))
-                .top(px(top))
-                .h(px(row_h))
-                .rounded(px(8.))
-                .when(active, |d| {
-                    d.bg(linear_gradient(90., linear_color_stop(c.cursor, 0.), linear_color_stop(c.cursor.blend(c.accent2.opacity(0.22)), 1.)))
-                        .shadow(vec![BoxShadow { color: c.cursor.opacity(0.42), offset: point(px(0.), px(4.)), blur_radius: px(14.), spread_radius: px(-3.) }])
-                })
-                .when(!active, |d| d.border_1().border_color(c.cursor.opacity(0.5)).bg(c.cursor.opacity(0.07)))
+            let row_top = self.cursor_spring[side].value * row_h;
+            let (log, scroll) = (self.pill_log[side].clone(), self.scroll[side].clone());
+            let (fill, shadow, border): (gpui::Background, Option<BoxShadow>, Option<Hsla>) = if active {
+                (
+                    linear_gradient(90., linear_color_stop(c.cursor, 0.), linear_color_stop(c.cursor.blend(c.accent2.opacity(0.22)), 1.)),
+                    Some(BoxShadow { color: c.cursor.opacity(0.42), offset: point(px(0.), px(4.)), blur_radius: px(14.), spread_radius: px(-3.) }),
+                    None,
+                )
+            } else {
+                (c.cursor.opacity(0.07).into(), None, Some(c.cursor.opacity(0.5)))
+            };
+            canvas(|_, _, _| {}, move |bounds, _, window, _| {
+                let offset: f32 = scroll.0.borrow().base_handle.offset().y.into();
+                let top = row_top + offset;
+                let mut log = log.borrow_mut();
+                if log.len() >= 32 {
+                    log.remove(0);
+                }
+                log.push((top, offset));
+                drop(log);
+                let rect = Bounds::new(point(bounds.origin.x + px(6.), bounds.origin.y + px(top)), size(bounds.size.width - px(12.), px(row_h)));
+                let radius = gpui::Corners::all(px(8.));
+                if let Some(s) = shadow {
+                    window.paint_shadows(rect, radius, &[s]);
+                }
+                window.paint_quad(gpui::quad(rect, radius, fill, px(if border.is_some() { 1. } else { 0. }), border.unwrap_or_default(), gpui::BorderStyle::Solid));
+            })
+            .absolute()
+            .size_full()
         });
 
         // The selection band, in list coordinates (content coordinates minus the scroll).

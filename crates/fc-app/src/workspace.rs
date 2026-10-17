@@ -41,6 +41,9 @@ pub struct Toast {
     pub until: Instant,
 }
 
+/// Per painted frame: (cursor highlight top, list scroll offset), relative to the list.
+pub type PillLog = Rc<std::cell::RefCell<Vec<(f32, f32)>>>;
+
 /// Items dragged between panels.
 #[derive(Clone)]
 pub struct DraggedFiles {
@@ -125,6 +128,9 @@ pub struct Workspace {
     size_cancel: Arc<AtomicBool>,
     /// Gliding cursor highlight per panel (row index, animated).
     pub cursor_spring: [crate::anim::Spring; 2],
+    /// Per painted frame: where the cursor highlight was drawn and the list's scroll offset
+    /// at that moment, relative to the list (checked by the smoke run).
+    pub pill_log: [PillLog; 2],
     pub snap_cursor: [bool; 2],
     /// Whether each panel's cursor was shown last frame (it snaps into place on appearing).
     pub cursor_shown: [bool; 2],
@@ -221,6 +227,7 @@ impl Workspace {
             size_results: Arc::new(Mutex::new(Vec::new())),
             size_cancel: Arc::new(AtomicBool::new(false)),
             cursor_spring: Default::default(),
+            pill_log: Default::default(),
             snap_cursor: [true, true],
             cursor_shown: [false, false],
             last_frame: Instant::now(),
@@ -1298,7 +1305,6 @@ impl Workspace {
             MenuEntry::Separator,
             Self::item(cx, "Get Info", Action::ShowInfo, one),
             Self::item(cx, "Show in Finder", Action::ShowInFinder, any),
-            Self::item(cx, "Calculate Folder Size", Action::FolderSize, any),
             MenuEntry::Separator,
             Self::item(cx, "Move to Trash", Action::Delete, any),
             Self::item(cx, "Delete Permanently", Action::DeleteForce, any),
@@ -1922,6 +1928,14 @@ impl Workspace {
                     if dirs.is_empty() { vec![self.tab().working_dir().to_path_buf()] } else { dirs }
                 };
                 crate::search::open(roots, action == A::SearchSpotlight, cx.entity().downgrade(), window.window_handle(), cx);
+            }
+            A::DiskMap => {
+                let marked: Vec<PathBuf> = self.tab().selected.iter().filter(|p| p.is_dir()).cloned().collect();
+                let suggested = match marked.as_slice() {
+                    [one] => one.clone(),
+                    _ => self.tab().working_dir().to_path_buf(),
+                };
+                crate::diskmap::open(Some(suggested), cx.entity().downgrade(), window.window_handle(), cx);
             }
             A::ShowTerminal => self.toggle_terminal(window, cx),
             A::OpenTerminalApp => {
