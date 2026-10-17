@@ -151,6 +151,7 @@ impl Frame {
 pub enum MouseKind {
     Move,
     LeftDown,
+    LeftDragged,
     LeftUp,
 }
 
@@ -176,6 +177,7 @@ pub fn post_mouse(window: &Window, kind: MouseKind, at: gpui::Point<gpui::Pixels
         MouseKind::LeftDown => 1,
         MouseKind::LeftUp => 2,
         MouseKind::Move => 5,
+        MouseKind::LeftDragged => 6,
     };
     // SAFETY: builds an autoreleased NSEvent and hands it to the shared NSApplication.
     unsafe {

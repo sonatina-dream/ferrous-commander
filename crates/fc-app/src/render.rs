@@ -106,20 +106,24 @@ fn fit_columns(cols: Vec<SortKey>, list_width: f32) -> Vec<SortKey> {
 }
 
 /// Small accent check shown on marked items.
-fn check_badge(c: &Colors) -> gpui::Div {
-    div()
+/// The check mark on a marked item's icon, ringed in the colour behind it. On the cursor
+/// it is inverted, since the cursor is drawn in the accent colour. In list rows (`in_row`)
+/// it sits on the icon's lower-right corner: rows are only as tall as the icon, so a badge
+/// sticking out above would land on the row above.
+fn check_badge(c: &Colors, on_cursor: bool, in_row: bool) -> gpui::Div {
+    let (fill, mark, ring) = if on_cursor { (c.cursor_text, c.cursor, c.cursor) } else { (c.accent, c.on_accent, c.mark) };
+    let badge = div()
         .absolute()
-        .top(px(-4.))
-        .right(px(-4.))
-        .size(px(13.))
+        .size(px(if in_row { 12. } else { 14. }))
         .rounded_full()
-        .bg(c.accent)
+        .bg(fill)
         .border_1()
-        .border_color(c.bg)
+        .border_color(ring)
         .flex()
         .items_center()
         .justify_center()
-        .child(icon(icons::CHECK, 9., c.on_accent))
+        .child(icon(icons::CHECK, if in_row { 8. } else { 9. }, mark));
+    if in_row { badge.bottom(px(0.)).right(px(-3.)) } else { badge.top(px(-4.)).right(px(-4.)) }
 }
 
 impl Workspace {
@@ -736,7 +740,7 @@ impl Workspace {
 
             let editor = self.rename_field(side, &e.path, &c);
             let renaming = editor.is_some();
-            let tile = look::entry_tile(&e.path, kind, 22., &c, on_pill, cx).relative().when(marked, |d| d.child(check_badge(&c)));
+            let tile = look::entry_tile(&e.path, kind, 22., &c, on_pill, cx).relative().when(marked, |d| d.child(check_badge(&c, on_pill, true)));
             let label: AnyElement = match editor {
                 Some(field) => field.into_any_element(),
                 None => div()
@@ -883,7 +887,11 @@ impl Workspace {
         }
         let paths = if self.panels[side].tab().is_selected(e) { selected.to_vec() } else { vec![e.path.clone()] };
         let label = if paths.len() == 1 { e.name.clone() } else { format!("{} items", paths.len()) };
-        handle.on_drag(DraggedFiles { side, paths }, move |_, _offset, _w, cx| cx.new(|_| DragPreview { label: label.clone() }))
+        handle.on_drag(DraggedFiles { side, paths }, move |files: &DraggedFiles, _offset, _w, cx| {
+            // Leaving the window with these hands the drag to macOS (other apps).
+            crate::dragout::arm(files.paths.clone(), cx);
+            cx.new(|_| DragPreview { label: label.clone() })
+        })
     }
 
     fn render_brief(&mut self, side: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -937,7 +945,7 @@ impl Workspace {
                     .min_w(px(0.))
                     .overflow_hidden()
                     .when(renaming, |d| d.flex_1())
-                    .child(look::entry_tile(&e.path, look::kind_of(&e), 18., &c, on_pill, cx).relative().when(marked, |d| d.child(check_badge(&c))))
+                    .child(look::entry_tile(&e.path, look::kind_of(&e), 18., &c, on_pill, cx).relative().when(marked, |d| d.child(check_badge(&c, on_pill, true))))
                     .child(label);
                 let row = div()
                     .id(("brief", ix))
@@ -1035,7 +1043,7 @@ impl Workspace {
                     .items_center()
                     .justify_center()
                     .gap(px(5.))
-                    .child(div().h(px(70.)).flex().items_center().justify_center().relative().child(picture).when(marked, |d| d.child(check_badge(&c))))
+                    .child(div().h(px(70.)).flex().items_center().justify_center().relative().child(picture).when(marked, |d| d.child(check_badge(&c, on_pill, false))))
                     .child(name_el)
                     .child(div().text_size(px(10.)).text_color(if on_pill { c.cursor_text.opacity(0.75) } else { c.muted }).child(meta));
                 let cell = div()
@@ -1763,6 +1771,10 @@ impl Render for Workspace {
             }))
             .on_mouse_move(cx.listener(|this, ev: &MouseMoveEvent, w, cx| this.mouse_moved(ev.position, ev.pressed_button == Some(MouseButton::Left), w, cx)))
             .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _w, cx| this.mouse_released(cx)))
+            .child({
+                let workspace = cx.entity().downgrade();
+                canvas(|_, _, _| {}, move |_, _, window, _| crate::dragout::listen(workspace, window)).absolute().size_0()
+            })
             .child(self.render_titlebar(&c, cx))
             .child(
                 div()

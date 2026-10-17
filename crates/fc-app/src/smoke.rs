@@ -330,6 +330,7 @@ async fn script(cx: &mut AsyncApp) -> Result<(), String> {
     diskmap_click_phase(cx).await?;
     fast_scroll_phase(cx, &base).await?;
     app_icons_phase(cx).await?;
+    drag_phase(cx, &base).await?;
 
     let windows = cx.update(|cx| cx.windows().len()).map_err(|e| e.to_string())?;
     eprintln!("smoke: {windows} window(s) open");
@@ -1183,5 +1184,59 @@ async fn app_icons_phase(cx: &mut AsyncApp) -> Result<(), String> {
     eprintln!("smoke:   {loaded} application icons loaded");
     check(loaded >= 5, &format!("only {loaded} application icons loaded"))?;
     shot(cx, "app-icons").await;
+    Ok(())
+}
+
+/// Dragging a file between panels with real mouse events still copies it (the drag-out
+/// hand-off only acts once the pointer leaves the window), and the macOS drag bridge
+/// declines cleanly when no drag is in progress. Leaving the window is tested by hand:
+/// a synthetic release during a real macOS drag would drop wherever the real pointer is.
+#[cfg(target_os = "macos")]
+async fn drag_phase(cx: &mut AsyncApp, base: &Path) -> Result<(), String> {
+    use crate::capture::MouseKind;
+    let (src, dst) = (base.join("dragsrc"), base.join("dragdst"));
+    std::fs::create_dir_all(&src).map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dst).map_err(|e| e.to_string())?;
+    std::fs::write(src.join("drag-me.txt"), "drag").map_err(|e| e.to_string())?;
+    let (s, d) = (src.clone(), dst.clone());
+    step(cx, "panels for dragging", move |ws, w, cx| {
+        ws.navigate(0, s, None, w, cx);
+        ws.navigate(1, d, None, w, cx);
+        for side in 0..2 {
+            ws.panels[side].tab_mut().view_mode = fc_core::ViewMode::Full;
+        }
+        ws.activate_side(0, w, cx);
+    })
+    .await?;
+    pause(cx, 500).await;
+    let (left, right, row_h) = step(cx, "drag geometry", |ws, _, cx| (ws.list_bounds[0].get(), ws.list_bounds[1].get(), Workspace::row_height(cx))).await?;
+    let from = point(left.origin.x + px(40.), left.origin.y + px(row_h * 0.5));
+    let to = right.center();
+    let handle: gpui::AnyWindowHandle = cx.update(find_workspace).map_err(|e| e.to_string())?.ok_or("no workspace window")?.into();
+    post(cx, handle, MouseKind::Move, from)?;
+    pause(cx, 60).await;
+    post(cx, handle, MouseKind::LeftDown, from)?;
+    pause(cx, 60).await;
+    for i in 1..=8 {
+        let t = i as f32 / 8.0;
+        post(cx, handle, MouseKind::LeftDragged, point(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t))?;
+        pause(cx, 30).await;
+    }
+    let armed = cx.update(|cx| crate::dragout::is_armed(cx) && cx.has_active_drag()).map_err(|e| e.to_string())?;
+    post(cx, handle, MouseKind::LeftUp, to)?;
+    pause(cx, 300).await;
+    wait_jobs(cx).await?;
+    let disarmed = cx.update(|cx| !crate::dragout::is_armed(cx) && !cx.has_active_drag()).map_err(|e| e.to_string())?;
+    eprintln!("smoke:   panel drag with real mouse events: armed while dragging {armed}, cleared after drop {disarmed}");
+    check(armed, "dragging a file did not start a drag that can leave the window")?;
+    check(exists(&dst.join("drag-me.txt")), "dragging a file to the other panel did not copy it")?;
+    check(disarmed, "the drag-out hand-off stayed armed after dropping inside the window")?;
+    let started = step(cx, "drag-out without a drag", move |_, w, _| crate::dragout::begin_native_drag(w, &[src.join("drag-me.txt")])).await?;
+    check(!started, "a macOS drag started without the mouse being dragged")?;
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+async fn drag_phase(_cx: &mut AsyncApp, _base: &Path) -> Result<(), String> {
     Ok(())
 }

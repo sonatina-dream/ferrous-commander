@@ -808,6 +808,13 @@ impl Workspace {
         cx.notify();
     }
 
+    /// A file drag left the window and macOS took it over (another app gets the files):
+    /// the button release will never arrive here, so finish the press now.
+    pub fn drag_handed_off(&mut self, cx: &mut Context<Self>) {
+        self.press_on_selected = None;
+        self.mouse_released(cx);
+    }
+
     /// Items dropped on a folder row: moved there within a volume, copied across volumes
     /// (⌥ copies, ⌘ moves). A drop that makes no sense there acts like a drop on the panel.
     pub fn drop_into_folder(&mut self, side: usize, folder: PathBuf, files: &DraggedFiles, window: &mut Window, cx: &mut Context<Self>) {
