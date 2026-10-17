@@ -13,6 +13,8 @@ observations it rests on. No code, artwork or resources from Commander One are i
 | | |
 |---|---|
 | ![Dual panels, dark](docs/media/01-dual-panel-dark.png) | ![Thumbnails](docs/media/03-thumbnails.png) |
+| ![Rename in place](docs/media/15-rename-in-place.png) | ![Selecting with a band](docs/media/16-band-selection.png) |
+| ![Embedded terminal](docs/media/17-terminal.png) | ![One panel](docs/media/18-single-panel.png) |
 | ![Command palette](docs/media/05-command-palette.png) | ![Context menu](docs/media/06-context-menu.png) |
 | ![Conflict prompt](docs/media/07-conflict.png) | ![Job progress](docs/media/08-job-progress.png) |
 | ![Silver theme](docs/media/09-silver-theme.png) | ![Viewer](docs/media/11-viewer-dark.png) |

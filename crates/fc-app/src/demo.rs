@@ -23,9 +23,6 @@ use crate::workspace::{dirs_home, Workspace};
 const FPS: u32 = 30;
 
 pub fn run(out: PathBuf, cx: &mut App) {
-    // The tour shows both panels.
-    cx.global_mut::<AppState>().settings.view.show_right_panel = true;
-    cx.refresh_windows();
     cx.spawn(async move |cx: &mut AsyncApp| {
         let result = tour(&out, cx).await;
         match &result {
@@ -165,6 +162,31 @@ fn cursor_to(name: &'static str, side: usize) -> impl FnOnce(&mut Workspace, &mu
     }
 }
 
+/// Drags a selection band in `side` from the blank part of row `from` to row `to`
+/// (shifted `dx` px sideways), in small steps so the video shows it growing. The button
+/// stays down; call `mouse_released` afterwards.
+async fn drag_band(cx: &mut AsyncApp, side: usize, from: usize, to: f32, dx: f32) -> Result<(), String> {
+    let (x0, y0, row) = step(cx, "band: press", move |ws, w, cx| {
+        let b = ws.list_bounds[side].get();
+        let row = Workspace::row_height(cx);
+        let x0 = f32::from(b.origin.x) + (f32::from(b.size.width) * 0.55).min(280.0);
+        let y0 = f32::from(b.origin.y) + row * (from as f32 + 0.5);
+        let down = gpui::MouseDownEvent { button: gpui::MouseButton::Left, position: point(px(x0), px(y0)), modifiers: Default::default(), click_count: 1, first_mouse: false };
+        ws.row_mouse_down(side, from, false, &down, w, cx);
+        (x0, y0, row)
+    })
+    .await?;
+    let handle = cx.update(find_workspace).map_err(|e| e.to_string())?.ok_or("no main window")?;
+    let steps = 16;
+    for i in 1..=steps {
+        let t = i as f32 / steps as f32;
+        let at = point(px(x0 + dx * t), px(y0 + (to - from as f32) * row * t));
+        handle.update(cx, |ws, w, cx| ws.mouse_moved(at, true, w, cx)).map_err(|e| e.to_string())?;
+        pause(cx, 50).await;
+    }
+    Ok(())
+}
+
 async fn slow_keys(cx: &mut AsyncApp, list: &[&str], gap_ms: u64) -> Result<(), String> {
     for k in list {
         keys(cx, &[k]).await?;
@@ -219,6 +241,48 @@ async fn tour(out: &Path, cx: &mut AsyncApp) -> Result<(), String> {
     slow_keys(cx, &["down", "down", "down", "down"], 220).await?;
     shot(cx, out, "02-project-folder", Which::Main).await?;
     keys(cx, &["backspace"]).await?;
+    pause(cx, 900).await;
+
+    // Rename in place: F2, type over the selected name, Return.
+    step(cx, "cursor to ideas.md", cursor_to("ideas.md", 0)).await?;
+    pause(cx, 600).await;
+    keys(cx, &["f2"]).await?;
+    pause(cx, 700).await;
+    type_text(cx, "launch ideas").await?;
+    pause(cx, 300).await;
+    shot(cx, out, "15-rename-in-place", Which::Main).await?;
+    keys(cx, &["enter"]).await?;
+    pause(cx, 1000).await;
+
+    // Drag a band over a few photos to select them; click empty space to clear.
+    step(cx, "activate photos", |ws, w, cx| ws.activate_side(1, w, cx)).await?;
+    pause(cx, 400).await;
+    drag_band(cx, 1, 1, 4.4, -150.0).await?;
+    shot(cx, out, "16-band-selection", Which::Main).await?;
+    step(cx, "band: release", |ws, _, cx| ws.mouse_released(cx)).await?;
+    pause(cx, 1100).await;
+    step(cx, "click empty space", |ws, w, cx| {
+        let b = ws.list_bounds[1].get();
+        let at = point(b.origin.x + px(120.), b.origin.y + b.size.height - px(40.));
+        let down = gpui::MouseDownEvent { button: gpui::MouseButton::Left, position: at, modifiers: Default::default(), click_count: 1, first_mouse: false };
+        ws.background_mouse_down(1, &down, w, cx);
+        ws.mouse_released(cx);
+    })
+    .await?;
+    pause(cx, 800).await;
+
+    // The terminal under the panels, in the left panel's folder.
+    step(cx, "focus projects", |ws, w, cx| ws.activate_side(0, w, cx)).await?;
+    keys(cx, &["ctrl-o"]).await?;
+    pause(cx, 1600).await;
+    type_text(cx, "ls").await?;
+    keys(cx, &["enter"]).await?;
+    pause(cx, 800).await;
+    type_text(cx, "du -sh *").await?;
+    keys(cx, &["enter"]).await?;
+    pause(cx, 1400).await;
+    shot(cx, out, "17-terminal", Which::Main).await?;
+    keys(cx, &["ctrl-`"]).await?;
     pause(cx, 900).await;
 
     // Photos as thumbnails in the other panel.
@@ -307,6 +371,20 @@ async fn tour(out: &Path, cx: &mut AsyncApp) -> Result<(), String> {
     keys(cx, &["enter"]).await?;
     shot(cx, out, "08-job-progress", Which::Main).await?;
     wait_jobs(cx).await?;
+    pause(cx, 1000).await;
+
+    // One panel: close the right one, then bring it back.
+    let projects = home.join("Projects");
+    step(cx, "close right panel", move |ws, w, cx| {
+        ws.navigate(0, projects, None, w, cx);
+        ws.activate_side(0, w, cx);
+        ws.run(Action::ToggleRightPanel, w, cx);
+    })
+    .await?;
+    pause(cx, 1300).await;
+    slow_keys(cx, &["down", "down"], 260).await?;
+    shot(cx, out, "18-single-panel", Which::Main).await?;
+    step(cx, "show right panel", |ws, w, cx| ws.run(Action::ToggleRightPanel, w, cx)).await?;
     pause(cx, 1000).await;
 
     // Light theme.
