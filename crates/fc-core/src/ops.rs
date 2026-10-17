@@ -236,6 +236,43 @@ pub fn same_inode(a: &Path, b: &Path) -> bool {
     }
 }
 
+/// True when both paths exist on the same file system (volume).
+pub fn same_volume(a: &Path, b: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    match (fs::symlink_metadata(a), fs::metadata(b)) {
+        (Ok(x), Ok(y)) => x.dev() == y.dev(),
+        _ => false,
+    }
+}
+
+/// What dropping `sources` onto the folder `dest` does, or `None` when the drop makes no
+/// sense: onto one of the items, into an item's own subfolder, or back into the folder the
+/// items already are in. As in Finder, items move within a volume and are copied to
+/// another one; `force_copy` (⌥) and `force_move` (⌘) override that.
+pub fn drop_action(sources: &[PathBuf], dest: &Path, force_copy: bool, force_move: bool) -> Option<TransferKind> {
+    if sources.is_empty() || !dest.is_dir() {
+        return None;
+    }
+    let dest = normalize(dest);
+    for src in sources {
+        let src = normalize(src);
+        let real_dir = fs::symlink_metadata(&src).map(|m| m.is_dir()).unwrap_or(false);
+        if src == dest || (real_dir && dest.starts_with(&src)) {
+            return None;
+        }
+    }
+    if sources.iter().all(|s| normalize(s).parent() == Some(dest.as_path())) {
+        return None;
+    }
+    Some(if force_copy {
+        TransferKind::Copy
+    } else if force_move || sources.iter().all(|s| same_volume(s, &dest)) {
+        TransferKind::Move
+    } else {
+        TransferKind::Copy
+    })
+}
+
 fn is_writable(dir: &Path) -> bool {
     use std::ffi::CString;
     use std::os::unix::ffi::OsStrExt;
@@ -962,6 +999,27 @@ mod tests {
             Err(OpError::SameFile(a.clone()))
         );
         assert_eq!(plan_transfer(TransferKind::Copy, &[], r, r), Err(OpError::EmptySelection));
+    }
+
+    #[test]
+    fn drop_rules() {
+        let t = tree();
+        let r = t.path();
+        let (a, sub, src, dst) = (r.join("src/a.txt"), r.join("src/sub"), r.join("src"), r.join("dst"));
+
+        assert_eq!(drop_action(std::slice::from_ref(&a), &dst, false, false), Some(TransferKind::Move), "same volume moves");
+        assert_eq!(drop_action(std::slice::from_ref(&a), &dst, true, false), Some(TransferKind::Copy), "⌥ copies");
+        assert_eq!(drop_action(&[a.clone(), sub.clone()], &dst, false, true), Some(TransferKind::Move));
+        assert_eq!(drop_action(std::slice::from_ref(&a), &sub, false, false), Some(TransferKind::Move), "into a sibling folder");
+
+        assert_eq!(drop_action(std::slice::from_ref(&sub), &sub, false, false), None, "onto itself");
+        assert_eq!(drop_action(std::slice::from_ref(&src), &sub, false, false), None, "into its own subfolder");
+        assert_eq!(drop_action(&[a.clone(), sub.clone()], &src, false, false), None, "already there");
+        assert_eq!(drop_action(std::slice::from_ref(&a), &a, false, false), None, "onto a file");
+        assert_eq!(drop_action(&[], &dst, false, false), None);
+
+        assert!(same_volume(&a, &dst));
+        assert!(!same_volume(&r.join("missing"), &dst));
     }
 
     #[test]

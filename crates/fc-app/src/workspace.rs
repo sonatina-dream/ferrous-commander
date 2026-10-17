@@ -28,7 +28,11 @@ use fc_core::{platform, Entry, ListOptions, LockState, Panel, SortKey, ViewMode}
 use crate::dialogs::{Dialog, InfoState};
 use crate::menus::{MenuCmd, MenuEntry, PopupMenu};
 use crate::state::AppState;
+use crate::terminal::TerminalView;
 use crate::text_input::TextInput;
+
+/// Smallest height the embedded terminal can be dragged to.
+pub const MIN_TERMINAL_HEIGHT: f32 = 120.0;
 
 /// Transient status message at the bottom of the window.
 pub struct Toast {
@@ -42,6 +46,24 @@ pub struct Toast {
 pub struct DraggedFiles {
     pub side: usize,
     pub paths: Vec<PathBuf>,
+}
+
+/// A name being edited in place (F2).
+pub struct InlineRename {
+    pub side: usize,
+    pub path: PathBuf,
+    pub input: Entity<TextInput>,
+    /// Clicking or tabbing away commits the edit, as in Finder.
+    _blur: gpui::Subscription,
+}
+
+/// A rubber-band selection being dragged out in one panel.
+pub struct Marquee {
+    pub side: usize,
+    /// Anchor and pointer in list-content coordinates (see `crate::marquee`).
+    pub band: crate::marquee::Band,
+    /// Selection kept underneath the band (⌘ or ⇧ held when the drag started).
+    pub base: HashSet<PathBuf>,
 }
 
 /// Floating label shown while dragging.
@@ -104,6 +126,8 @@ pub struct Workspace {
     /// Gliding cursor highlight per panel (row index, animated).
     pub cursor_spring: [crate::anim::Spring; 2],
     pub snap_cursor: [bool; 2],
+    /// Whether each panel's cursor was shown last frame (it snaps into place on appearing).
+    pub cursor_shown: [bool; 2],
     pub last_frame: Instant,
     pub last_offsets: [f32; 2],
     /// Bumped on every folder change (row fade-in animations key off it).
@@ -116,6 +140,17 @@ pub struct Workspace {
     /// Bumped whenever a dialog or toast appears (pop-in animations).
     pub dialog_gen: u64,
     pub toast_gen: u64,
+    pub rename: Option<InlineRename>,
+    pub marquee: Option<Marquee>,
+    /// A press on an already selected row: the selection shrinks to that row on release,
+    /// unless the pointer moves (dragging the selection). (side, row, where).
+    press_on_selected: Option<(usize, usize, Point<Pixels>)>,
+    /// The embedded shell; it keeps running while the terminal is hidden.
+    pub terminal: Option<Entity<TerminalView>>,
+    pub terminal_open: bool,
+    pub terminal_height: f32,
+    pub dragging_terminal: bool,
+    _terminal_exit: Option<gpui::Subscription>,
     _tick: Task<()>,
     /// Redraws when macOS switches between light and dark.
     _appearance: gpui::Subscription,
@@ -157,7 +192,7 @@ impl Workspace {
             prompt_focus: cx.focus_handle(),
             menu_focus: cx.focus_handle(),
             panels,
-            active: session.active_side.min(1),
+            active: if Self::dual(cx) { session.active_side.min(1) } else { 0 },
             split: session.split.clamp(0.15, 0.85),
             dragging_split: false,
             scroll: [UniformListScrollHandle::new(), UniformListScrollHandle::new()],
@@ -187,6 +222,7 @@ impl Workspace {
             size_cancel: Arc::new(AtomicBool::new(false)),
             cursor_spring: Default::default(),
             snap_cursor: [true, true],
+            cursor_shown: [false, false],
             last_frame: Instant::now(),
             last_offsets: [0.0, 0.0],
             nav_gen: [0, 0],
@@ -196,6 +232,14 @@ impl Workspace {
             palette_generation: 0,
             dialog_gen: 0,
             toast_gen: 0,
+            rename: None,
+            marquee: None,
+            press_on_selected: None,
+            terminal: None,
+            terminal_open: false,
+            terminal_height: session.terminal_height.clamp(MIN_TERMINAL_HEIGHT, 900.0),
+            dragging_terminal: false,
+            _terminal_exit: None,
             _tick: tick,
             _appearance: appearance,
         };
@@ -236,6 +280,18 @@ impl Workspace {
 
     fn other(&self) -> usize {
         1 - self.active
+    }
+
+    /// True when the right panel is shown (Settings ▸ View ▸ Right panel).
+    pub fn dual(cx: &App) -> bool {
+        cx.global::<AppState>().settings.view.show_right_panel
+    }
+
+    /// Default destination of copy, move, link and archive commands: the other panel's
+    /// folder, or the current one while only one panel is shown.
+    fn other_dir(&self, cx: &App) -> PathBuf {
+        let side = if Self::dual(cx) { self.other() } else { self.active };
+        self.panels[side].tab().working_dir().to_path_buf()
     }
 
     pub fn row_height(cx: &App) -> f32 {
@@ -302,6 +358,15 @@ impl Workspace {
                     changed = true;
                 }
             }
+            // The item being renamed disappeared (deleted or renamed elsewhere).
+            if let Some(r) = &self.rename
+                && self.panels[r.side].tab().index_of(&r.path).is_none() {
+                    let focused = r.input.read(cx).focus.is_focused(window);
+                    self.rename = None;
+                    if focused {
+                        self.restore_focus(window);
+                    }
+                }
         }
 
         let sizes: Vec<(PathBuf, u64)> = std::mem::take(&mut *self.size_results.lock().unwrap());
@@ -393,6 +458,7 @@ impl Workspace {
                 width: b.size.width.into(),
                 height: b.size.height.into(),
             }),
+            terminal_height: self.terminal_height,
         }
     }
 
@@ -440,6 +506,7 @@ impl Workspace {
 
     /// Navigates `side` (respecting tab locks); errors become toasts.
     pub fn navigate(&mut self, side: usize, dir: PathBuf, focus: Option<&Path>, window: &mut Window, cx: &mut Context<Self>) {
+        self.commit_rename(window, cx);
         let opts = Self::opts(cx);
         let dir = ops::normalize(&dir);
         match self.panels[side].navigate_focus(dir.clone(), opts, focus) {
@@ -534,7 +601,7 @@ impl Workspace {
             UiNav::GoUp => self.run(Action::GoTop, window, cx),
             UiNav::ClearTypeAhead => {
                 if self.type_ahead.is_empty() {
-                    self.panels[side].tab_mut().unselect_all();
+                    self.panels[side].tab_mut().clear_selection();
                 }
                 self.type_ahead.clear();
                 cx.notify();
@@ -582,23 +649,177 @@ impl Workspace {
         cx.notify();
     }
 
-    pub fn row_mouse_down(&mut self, side: usize, ix: usize, ev: &gpui::MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+    /// Left button on a row. `on_name` is true on the icon and name, where a drag moves the
+    /// items; elsewhere on the row a drag draws a selection band.
+    pub fn row_mouse_down(&mut self, side: usize, ix: usize, on_name: bool, ev: &gpui::MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if self.rename.as_ref().is_some_and(|r| r.side == side && self.panels[side].tab().index_of(&r.path) == Some(ix)) {
+            return;
+        }
+        self.commit_rename(window, cx);
         self.activate_side(side, window, cx);
         let tab = self.panels[side].tab_mut();
         if ev.modifiers.platform {
             tab.toggle_index(ix);
             tab.set_cursor(ix);
         } else if ev.modifiers.shift {
-            let from = tab.cursor;
+            let from = if tab.cursor_visible { tab.cursor } else { ix };
             tab.select_range(from, ix);
             tab.set_cursor(ix);
         } else {
+            // A plain click selects just this item. On an item that is already selected
+            // that waits for the release, so the whole selection can be dragged.
+            if tab.entries.get(ix).is_some_and(|e| tab.is_selected(e)) {
+                self.press_on_selected = Some((side, ix, ev.position));
+            } else {
+                tab.unselect_all();
+            }
             tab.set_cursor(ix);
             if ev.click_count >= 2 {
                 self.run(Action::OpenItem, window, cx);
+            } else if !on_name {
+                self.begin_marquee(side, ev, window);
             }
         }
         cx.notify();
+    }
+
+    /// Left button on empty space in a list: clears the selection (unless ⌘ or ⇧ is held)
+    /// and starts a selection band.
+    pub fn background_mouse_down(&mut self, side: usize, ev: &gpui::MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        self.commit_rename(window, cx);
+        self.activate_side(side, window, cx);
+        if !ev.modifiers.platform && !ev.modifiers.shift {
+            self.panels[side].tab_mut().clear_selection();
+        }
+        self.begin_marquee(side, ev, window);
+        cx.notify();
+    }
+
+    /// Converts a window position to list-content coordinates of `side`.
+    fn list_point(&self, side: usize, position: Point<Pixels>) -> (f32, f32) {
+        let b = self.list_bounds[side].get();
+        let scrolled = match self.panels[side].tab().view_mode {
+            ViewMode::Brief => 0.0,
+            _ => -f32::from(self.scroll[side].0.borrow().base_handle.offset().y),
+        };
+        ((position.x - b.origin.x).into(), f32::from(position.y - b.origin.y) + scrolled)
+    }
+
+    fn begin_marquee(&mut self, side: usize, ev: &gpui::MouseDownEvent, _window: &mut Window) {
+        let at = self.list_point(side, ev.position);
+        let keep = ev.modifiers.platform || ev.modifiers.shift;
+        let base = if keep { self.panels[side].tab().selected.clone() } else { HashSet::new() };
+        self.marquee = Some(Marquee { side, band: crate::marquee::Band { a: at, b: at }, base });
+    }
+
+    /// The band's item layout for `side`, matching what `render` draws.
+    pub fn marquee_layout(&self, side: usize, cx: &App) -> crate::marquee::Layout {
+        use crate::marquee::Layout;
+        let tab = self.panels[side].tab();
+        let count = tab.entries.len();
+        match tab.view_mode {
+            ViewMode::Full => Layout::Rows { row_height: Self::row_height(cx), count },
+            ViewMode::Thumbs => Layout::Grid {
+                cell_width: crate::render::THUMB_CELL,
+                cell_height: crate::render::THUMB_HEIGHT,
+                cols: self.thumb_columns(side),
+                pad: 4.0,
+                gap: 3.0,
+                count,
+            },
+            ViewMode::Brief => {
+                let h: f32 = self.list_bounds[side].get().size.height.into();
+                Layout::Columns {
+                    col_width: cx.global::<AppState>().settings.view.brief_column_width.max(110.0),
+                    row_height: Self::row_height(cx),
+                    rows: ((h / Self::row_height(cx)).floor() as usize).max(1),
+                    first: self.brief_first_col[side],
+                    pad: 4.0,
+                    count,
+                }
+            }
+        }
+    }
+
+    /// Pointer moved while the left button is down: grows the band and reselects.
+    pub fn marquee_move(&mut self, position: Point<Pixels>, cx: &mut Context<Self>) {
+        let Some(side) = self.marquee.as_ref().map(|m| m.side) else { return };
+        let at = self.list_point(side, position);
+        let layout = self.marquee_layout(side, cx);
+        let Some(m) = self.marquee.as_mut() else { return };
+        m.band.b = at;
+        if !m.band.is_drag() {
+            return;
+        }
+        let hits = crate::marquee::hits(layout, m.band);
+        let base = m.base.clone();
+        self.panels[side].tab_mut().select_band(&base, hits);
+        cx.notify();
+    }
+
+    pub fn marquee_end(&mut self, cx: &mut Context<Self>) {
+        if self.marquee.take().is_some() {
+            cx.notify();
+        }
+    }
+
+    /// Pointer moved anywhere in the window (`pressed`: left button down).
+    pub fn mouse_moved(&mut self, position: Point<Pixels>, pressed: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.press_on_selected.is_some_and(|(_, _, at)| !pressed || (position - at).magnitude() > 4.0) {
+            self.press_on_selected = None;
+        }
+        if self.marquee.is_some() {
+            if pressed {
+                self.marquee_move(position, cx);
+            } else {
+                self.marquee_end(cx);
+            }
+        }
+        if self.dragging_terminal {
+            self.terminal_drag(position.y.into(), window, cx);
+        }
+        if self.dragging_split {
+            let sidebar = if cx.global::<AppState>().settings.view.show_sidebar { crate::render::SIDEBAR_WIDTH } else { 0.0 };
+            let width: f32 = window.viewport_size().width.into();
+            let x: f32 = position.x.into();
+            let usable = (width - sidebar - 24.0).max(1.0);
+            self.split_drag((x - sidebar - 12.0) / usable, cx);
+        }
+    }
+
+    /// Left button released anywhere in the window.
+    pub fn mouse_released(&mut self, cx: &mut Context<Self>) {
+        if let Some((side, ix, _)) = self.press_on_selected.take() {
+            let tab = self.panels[side].tab_mut();
+            if tab.cursor == ix {
+                tab.unselect_all();
+            }
+        }
+        self.marquee_end(cx);
+        self.dragging_split = false;
+        self.dragging_terminal = false;
+        cx.notify();
+    }
+
+    /// Items dropped on a folder row: moved there within a volume, copied across volumes
+    /// (⌥ copies, ⌘ moves). A drop that makes no sense there acts like a drop on the panel.
+    pub fn drop_into_folder(&mut self, side: usize, folder: PathBuf, files: &DraggedFiles, window: &mut Window, cx: &mut Context<Self>) {
+        let m = window.modifiers();
+        match ops::drop_action(&files.paths, &folder, m.alt, m.platform) {
+            Some(kind) => {
+                let n = files.paths.len();
+                let what = if n == 1 { "1 item".to_string() } else { format!("{n} items") };
+                let name = folder.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_else(|| "/".into());
+                self.notify_toast(format!("{} {what} to \"{name}\"", if kind == TransferKind::Move { "Moving" } else { "Copying" }), false);
+                self.start_transfer(kind, files.paths.clone(), folder, cx);
+            }
+            None => self.drop_files(side, files, window, cx),
+        }
+    }
+
+    /// Files from Finder dropped on a folder row are copied into it.
+    pub fn drop_external_into(&mut self, folder: PathBuf, paths: &[PathBuf], cx: &mut Context<Self>) {
+        self.start_transfer(TransferKind::Copy, paths.to_vec(), folder, cx);
     }
 
     pub fn row_right_click(&mut self, side: usize, ix: usize, position: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
@@ -663,11 +884,180 @@ impl Workspace {
             self.navigate(self.active, target, None, window, cx);
             self.restore_focus(window);
         } else {
-            let result = platform::run_in_terminal(&cwd, &text);
-            self.report(result);
+            self.run_in_terminal(&text, window, cx);
         }
         self.mark_session();
         cx.notify();
+    }
+
+    // ----- embedded terminal -----------------------------------------------------------
+
+    /// Shows the terminal (starting a shell in the active folder the first time) and
+    /// optionally focuses it. Returns false when the shell could not start.
+    pub fn show_terminal(&mut self, focus: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.terminal.is_none() {
+            let dir = self.tab().working_dir().to_path_buf();
+            match crate::terminal::open(&dir, cx) {
+                Ok(view) => {
+                    self._terminal_exit = Some(cx.subscribe_in(&view, window, |this, _, _: &crate::terminal::Exited, window, cx| {
+                        this.close_terminal_session(window, cx);
+                    }));
+                    self.terminal = Some(view);
+                }
+                Err(e) => {
+                    self.notify_toast(format!("Couldn't start the shell: {e}"), true);
+                    return false;
+                }
+            }
+        }
+        self.terminal_open = true;
+        if focus && let Some(t) = &self.terminal {
+            window.focus(&t.read(cx).focus.clone());
+        }
+        cx.notify();
+        true
+    }
+
+    /// ⌃O, ⌃` and the title-bar button: shows and focuses the terminal, or hides it.
+    pub fn toggle_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.terminal_open {
+            self.terminal_open = false;
+            self.dragging_terminal = false;
+            if self.dialog.is_none() && self.palette.is_none() {
+                self.restore_focus(window);
+            }
+            cx.notify();
+        } else {
+            self.show_terminal(true, window, cx);
+        }
+    }
+
+    /// The shell exited (`exit`, ⌃D): close the terminal; the next open starts a new one.
+    fn close_terminal_session(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let had_focus = self.terminal.as_ref().is_some_and(|t| t.read(cx).focus.contains_focused(window, cx));
+        self.terminal = None;
+        self._terminal_exit = None;
+        self.terminal_open = false;
+        if had_focus {
+            self.restore_focus(window);
+        }
+        cx.notify();
+    }
+
+    /// Types `line` into the shell, changing to `dir` first when the shell is elsewhere.
+    /// Refuses (with a toast) while a program is running in the terminal.
+    fn type_into_shell(&mut self, dir: &Path, line: Option<&str>, cx: &mut Context<Self>) -> bool {
+        let Some(term) = self.terminal.clone() else { return false };
+        let (idle, cwd) = {
+            let t = term.read(cx);
+            (t.session.shell_in_foreground(), t.session.cwd())
+        };
+        if !idle {
+            self.notify_toast("The terminal is busy. Quit the running program first.", true);
+            return false;
+        }
+        let same = |a: &Path, b: &Path| a.canonicalize().ok().is_some_and(|a| b.canonicalize().ok() == Some(a));
+        let mut text = String::new();
+        if !cwd.as_deref().is_some_and(|c| same(c, dir)) {
+            text.push_str(&format!("cd -- {}", platform::shell_quote(&dir.to_string_lossy())));
+            if line.is_some() {
+                text.push_str(" && ");
+            }
+        }
+        text.push_str(line.unwrap_or_default());
+        if !text.is_empty() {
+            text.push('\r');
+            term.update(cx, |t, _| t.type_text(&text));
+        }
+        true
+    }
+
+    /// Runs a command line in the terminal, in the active panel's folder.
+    pub fn run_in_terminal(&mut self, command: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.show_terminal(true, window, cx) {
+            let dir = self.tab().working_dir().to_path_buf();
+            self.type_into_shell(&dir, Some(command), cx);
+        }
+    }
+
+    /// Terminal header: `cd` the shell to the active panel's folder.
+    pub fn terminal_to_panel(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let dir = self.tab().working_dir().to_path_buf();
+        if self.type_into_shell(&dir, None, cx)
+            && let Some(t) = &self.terminal {
+                window.focus(&t.read(cx).focus.clone());
+            }
+    }
+
+    /// Terminal header: show the shell's folder in the active panel.
+    pub fn panel_to_terminal(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let cwd = self.terminal.as_ref().and_then(|t| t.read(cx).session.cwd());
+        if let Some(dir) = cwd {
+            self.navigate(self.active, dir, None, window, cx);
+        }
+    }
+
+    /// Resizes the terminal while its top edge is dragged (`y` in window coordinates).
+    pub fn terminal_drag(&mut self, y: f32, window: &Window, cx: &mut Context<Self>) {
+        let height: f32 = window.viewport_size().height.into();
+        let dock = if cx.global::<AppState>().settings.view.show_command_line || cx.global::<AppState>().settings.view.show_buttons { 54.0 } else { 0.0 };
+        let max = (height - dock - 50.0 - 200.0).max(MIN_TERMINAL_HEIGHT);
+        self.terminal_height = (height - dock - y).clamp(MIN_TERMINAL_HEIGHT, max);
+        self.mark_session();
+        cx.notify();
+    }
+
+    // ----- inline rename ---------------------------------------------------------------
+
+    /// F2: turns the cursor item's name into an editable field (the stem is selected).
+    pub fn begin_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let side = self.active;
+        let Some(entry) = self.tab().cursor_entry().cloned().filter(|e| !e.is_parent()) else { return };
+        let name = entry.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let font = cx.global::<AppState>().settings.appearance.font_size;
+        let input = cx.new(|cx| TextInput::new(cx, name, "Name").with_context("RenameInput").bare().text_size(font).height(Self::row_height(cx) - 4.0));
+        input.update(cx, |i, cx| i.select_stem(cx));
+        let focus = input.read(cx).focus.clone();
+        let blur = cx.on_blur(&focus, window, |this, window, cx| this.commit_rename(window, cx));
+        self.marquee = None;
+        self.rename = Some(InlineRename { side, path: entry.path, input, _blur: blur });
+        window.focus(&focus);
+        self.reveal_cursor(side);
+        cx.notify();
+    }
+
+    /// Applies the edited name (Return, or focus moving away).
+    pub fn commit_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(r) = self.rename.take() else { return };
+        let had_focus = r.input.read(cx).focus.is_focused(window);
+        let new_name = r.input.read(cx).text().trim().to_string();
+        let old_name = r.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        if had_focus {
+            self.restore_focus(window);
+        }
+        cx.notify();
+        if new_name.is_empty() || new_name == old_name {
+            return;
+        }
+        if new_name.contains('/') {
+            // A path: move the item there.
+            let base_dir = r.path.parent().map(Path::to_path_buf).unwrap_or_default();
+            cx.global::<AppState>().jobs.start(JobKind::Transfer { kind: TransferKind::Move, sources: vec![r.path], dest: PathBuf::from(new_name), base_dir });
+        } else if cx.global::<AppState>().settings.advanced.confirm_change_extension && r.path.is_file() && ops::changes_extension(&old_name, &new_name) {
+            self.open_dialog(Dialog::ConfirmRenameExt { path: r.path, new_name }, window, cx);
+        } else {
+            self.finish_rename(&r.path, &new_name, cx);
+        }
+    }
+
+    /// Escape: leaves the name as it was.
+    pub fn cancel_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(r) = self.rename.take() {
+            if r.input.read(cx).focus.is_focused(window) {
+                self.restore_focus(window);
+            }
+            cx.notify();
+        }
     }
 
     pub fn command_history_step(&mut self, back: bool, cx: &mut Context<Self>) {
@@ -869,7 +1259,8 @@ impl Workspace {
                 Self::item(cx, "New File", Action::NewFile, true),
                 MenuEntry::Separator,
                 Self::item(cx, "Select All", Action::SelectAll, true),
-                Self::item(cx, "Open in Terminal", Action::ShowTerminal, true),
+                Self::item(cx, if self.terminal_open { "Hide Terminal" } else { "Show Terminal" }, Action::ShowTerminal, true),
+                Self::item(cx, "Open in Terminal App", Action::OpenTerminalApp, true),
                 Self::item(cx, "Reload", Action::ReloadContent, true),
             ],
         )
@@ -891,8 +1282,9 @@ impl Workspace {
             Self::item(cx, "Cut", Action::CutFiles, any),
             Self::item(cx, "Paste", Action::PasteFiles, Self::clipboard_has_files(cx)),
             MenuEntry::Separator,
-            Self::item(cx, &format!("Copy {names} to Other Panel"), Action::Copy, any),
-            Self::item(cx, "Rename / Move…", Action::Move, any),
+            Self::item(cx, "Rename", Action::Rename, one),
+            Self::item(cx, &if Self::dual(cx) { format!("Copy {names} to Other Panel…") } else { format!("Copy {names} To…") }, Action::Copy, any),
+            Self::item(cx, if Self::dual(cx) { "Move to Other Panel…" } else { "Move To…" }, Action::Move, any),
             Self::item(cx, "Duplicate", Action::Duplicate, any),
             Self::item(cx, "Make Alias", Action::MakeAlias, any),
             Self::item(cx, "Make Symlink", Action::MakeLink, any),
@@ -1128,6 +1520,9 @@ impl Workspace {
         let side = self.active;
         let files_only = cx.global::<AppState>().settings.general.select_files_only;
         self.menu = None;
+        if action != A::Rename {
+            self.commit_rename(window, cx);
+        }
 
         // Pattern keys type into an active type-ahead instead of opening dialogs.
         if matches!(action, A::Select | A::Unselect | A::InvertSelect | A::SelectItem)
@@ -1182,7 +1577,7 @@ impl Workspace {
             A::Copy | A::Move | A::Queue => {
                 let Some(targets) = self.targets_or_toast() else { return };
                 let kind = if action == A::Move { TransferKind::Move } else { TransferKind::Copy };
-                let dest = self.panels[self.other()].tab().working_dir().to_path_buf();
+                let dest = self.other_dir(cx);
                 let mut dest_text = dest.to_string_lossy().into_owned();
                 if !dest_text.ends_with('/') {
                     dest_text.push('/');
@@ -1212,12 +1607,7 @@ impl Workspace {
                 }
             }
             A::PasteFiles | A::MoveHere => self.paste(action == A::MoveHere, cx),
-            A::Rename => {
-                let Some(entry) = self.tab().cursor_entry().cloned().filter(|e| !e.is_parent()) else { return };
-                let input = self.input(&entry.name, "New name", cx);
-                input.update(cx, |i, cx| i.select_stem(cx));
-                self.open_dialog(Dialog::Rename { path: entry.path, input }, window, cx);
-            }
+            A::Rename => self.begin_rename(window, cx),
             A::NewFolder => {
                 let selection: Vec<PathBuf> = if self.tab().selected.is_empty() { Vec::new() } else { self.tab().target_paths() };
                 let name = if selection.is_empty() { "New Folder" } else { "New Folder With Items" };
@@ -1250,7 +1640,7 @@ impl Workspace {
             }
             A::MakeLink => {
                 let Some(targets) = self.targets_or_toast() else { return };
-                let dest = self.panels[self.other()].tab().working_dir().to_path_buf();
+                let dest = self.other_dir(cx);
                 let paths: Vec<PathBuf> = targets.into_iter().map(|e| e.path).collect();
                 match ops::make_symlinks(&paths, &dest) {
                     Ok(links) => self.notify_toast(format!("Created {} symlink(s) in \"{}\"", links.len(), dest.display()), false),
@@ -1260,7 +1650,7 @@ impl Workspace {
             }
             A::MakeAlias => {
                 let Some(targets) = self.targets_or_toast() else { return };
-                let dest = self.panels[self.other()].tab().working_dir().to_path_buf();
+                let dest = self.other_dir(cx);
                 let paths: Vec<PathBuf> = targets.into_iter().map(|e| e.path).collect();
                 let r = platform::make_aliases(&paths, &dest);
                 self.report(r);
@@ -1270,7 +1660,7 @@ impl Workspace {
                 let Some(targets) = self.targets_or_toast() else { return };
                 let paths: Vec<PathBuf> = targets.into_iter().map(|e| e.path).collect();
                 let name = archive::default_archive_name(&paths, self.tab().working_dir());
-                let out = self.panels[self.other()].tab().working_dir().join(&name);
+                let out = self.other_dir(cx).join(&name);
                 let out = if out.exists() { ops::unique_name(&out) } else { out };
                 cx.global::<AppState>().jobs.start(JobKind::Compress { items: paths, out, level: CompressionLevel::Normal });
             }
@@ -1278,7 +1668,7 @@ impl Workspace {
                 let Some(targets) = self.targets_or_toast() else { return };
                 let items: Vec<PathBuf> = targets.into_iter().map(|e| e.path).collect();
                 let name = archive::default_archive_name(&items, self.tab().working_dir());
-                let path = self.panels[self.other()].tab().working_dir().join(name);
+                let path = self.other_dir(cx).join(name);
                 let input = self.input(&path.to_string_lossy(), "Archive path", cx);
                 input.update(cx, |i, cx| i.select_stem(cx));
                 self.open_dialog(Dialog::Compress { items, input, level: CompressionLevel::Normal }, window, cx);
@@ -1289,7 +1679,7 @@ impl Workspace {
                     self.notify_toast("Extract works with ZIP, TAR and TAR.GZ archives.", true);
                     return;
                 }
-                let dest_dir = self.panels[self.other()].tab().working_dir().to_path_buf();
+                let dest_dir = self.other_dir(cx);
                 cx.global::<AppState>().jobs.start(JobKind::Extract { archive: entry.path, dest_dir });
             }
             A::ShowInfo => {
@@ -1349,7 +1739,7 @@ impl Workspace {
             }
             A::InvertSelect => self.tab_mut().invert_selection(files_only),
             A::SelectAll => self.tab_mut().select_all(files_only),
-            A::UnselectAll => self.tab_mut().unselect_all(),
+            A::UnselectAll => self.tab_mut().clear_selection(),
             A::GoBack | A::GoForward => {
                 let r = if action == A::GoBack { self.tab_mut().go_back(opts) } else { self.tab_mut().go_forward(opts) };
                 match r {
@@ -1388,7 +1778,7 @@ impl Workspace {
                 self.volumes = visible_volumes();
             }
             A::ChangeDriveLeft | A::ChangeDriveRight => {
-                let s = if action == A::ChangeDriveLeft { 0 } else { 1 };
+                let s = if action == A::ChangeDriveRight && Self::dual(cx) { 1 } else { 0 };
                 self.active = s;
                 let b = self.window_bounds.get();
                 let x = if s == 0 { px(12.) } else { b.size.width * self.split + px(12.) };
@@ -1409,6 +1799,9 @@ impl Workspace {
                 }
             }
             A::SwitchPanel => {
+                if !Self::dual(cx) {
+                    return;
+                }
                 self.active = self.other();
                 self.active_gen += 1;
                 self.type_ahead.clear();
@@ -1456,6 +1849,20 @@ impl Workspace {
             A::EqualizePanels => {
                 self.split = 0.5;
                 self.mark_session();
+            }
+            A::ToggleRightPanel => {
+                let state = cx.global_mut::<AppState>();
+                state.settings.view.show_right_panel = !state.settings.view.show_right_panel;
+                state.save_settings();
+                if Self::dual(cx) {
+                    let _ = self.panels[1].tab_mut().reload(opts);
+                } else if self.active == 1 {
+                    self.active = 0;
+                    self.active_gen += 1;
+                    self.update_title(window);
+                }
+                self.mark_session();
+                cx.refresh_windows();
             }
             A::NewWindow => {
                 let session = self.capture_session(cx);
@@ -1516,7 +1923,8 @@ impl Workspace {
                 };
                 crate::search::open(roots, action == A::SearchSpotlight, cx.entity().downgrade(), window.window_handle(), cx);
             }
-            A::ShowTerminal => {
+            A::ShowTerminal => self.toggle_terminal(window, cx),
+            A::OpenTerminalApp => {
                 let r = platform::open_terminal(self.tab().working_dir());
                 self.report(r);
             }
@@ -1559,22 +1967,6 @@ impl Workspace {
                         self.notify_toast(e.to_string(), true);
                         reopen = Some(Dialog::Transfer { kind, sources, base_dir, input, enqueue });
                     }
-                }
-            }
-            Dialog::Rename { path, input } => {
-                let new_name = input.read(cx).text().trim().to_string();
-                let old_name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                if new_name.contains('/') {
-                    // A path: treat as a move.
-                    let base_dir = path.parent().map(Path::to_path_buf).unwrap_or_default();
-                    jobs.start(JobKind::Transfer { kind: TransferKind::Move, sources: vec![path], dest: PathBuf::from(new_name), base_dir });
-                } else if cx.global::<AppState>().settings.advanced.confirm_change_extension
-                    && path.is_file()
-                    && ops::changes_extension(&old_name, &new_name)
-                {
-                    reopen = Some(Dialog::ConfirmRenameExt { path, new_name });
-                } else {
-                    self.finish_rename(&path, &new_name, cx);
                 }
             }
             Dialog::ConfirmRenameExt { path, new_name } => self.finish_rename(&path, &new_name, cx),
@@ -1672,14 +2064,23 @@ impl Workspace {
         }
     }
 
+    /// Renames `path` and keeps the cursor on it in every panel that lists it.
     fn finish_rename(&mut self, path: &Path, new_name: &str, cx: &mut Context<Self>) {
         match ops::rename_in_place(path, new_name) {
             Ok(new_path) => {
-                let _ = self.tab_mut().reload(Self::opts(cx));
-                if let Some(ix) = self.tab().index_of(&new_path) {
-                    self.tab_mut().set_cursor(ix);
+                let opts = Self::opts(cx);
+                for side in 0..2 {
+                    let tab = self.panels[side].tab_mut();
+                    if tab.index_of(path).is_none() {
+                        continue;
+                    }
+                    let _ = tab.reload(opts);
+                    if let Some(ix) = tab.index_of(&new_path) {
+                        tab.set_cursor(ix);
+                    }
+                    self.reveal_cursor(side);
                 }
-                self.reveal_cursor(self.active);
+                cx.notify();
             }
             Err(e) => self.notify_toast(e.to_string(), true),
         }

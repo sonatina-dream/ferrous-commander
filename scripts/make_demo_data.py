@@ -176,8 +176,14 @@ load()
         f.truncate(4_000_000_000)  # sparse: instant to create, real bytes when copied
     touch(j("Movies", "Holiday 4K.mov"), 3)
 
+    # The embedded terminal runs the login shell with this home: keep the prompt neutral
+    # (macOS's default shows the user and host names).
+    write(j(".zshrc"), "PROMPT='%1~ %# '\nunsetopt PROMPT_SP\n")
+    write(j(".bash_profile"), "PS1='\\W \\$ '\n")
+
     settings = {
         "appearance": {"theme": "Black", "font_size": 13.0, "viewer_font_size": 13.0},
+        "view": {"show_right_panel": True},
         "favorites": [j("Projects"), j("Photos"), j("Documents")],
     }
     with open(os.path.join(config, "settings.json"), "w") as f:

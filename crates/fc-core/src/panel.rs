@@ -81,11 +81,13 @@ pub enum Location {
 pub struct ListOptions {
     pub show_hidden: bool,
     pub folders_first: bool,
+    /// List the synthetic `..` row at the top of every folder but the root.
+    pub show_parent: bool,
 }
 
 impl Default for ListOptions {
     fn default() -> Self {
-        ListOptions { show_hidden: false, folders_first: true }
+        ListOptions { show_hidden: false, folders_first: true, show_parent: true }
     }
 }
 
@@ -133,7 +135,11 @@ pub enum OpenOutcome {
 pub struct Tab {
     pub location: Location,
     pub entries: Vec<Entry>,
+    /// Row of the keyboard cursor. It only selects anything while `cursor_visible`.
     pub cursor: usize,
+    /// Whether the cursor row is shown and counts as selected. Opening a folder starts
+    /// with nothing selected; clicking a row, typing a name or the first arrow key shows it.
+    pub cursor_visible: bool,
     pub selected: HashSet<PathBuf>,
     pub view_mode: ViewMode,
     pub sort: SortSpec,
@@ -147,9 +153,10 @@ fn read_location(location: &Location, opts: ListOptions) -> io::Result<Vec<Entry
     match location {
         Location::Dir(dir) => {
             let mut entries = list_dir(dir, opts.show_hidden)?;
-            if let Some(parent) = parent_entry(dir) {
-                entries.push(parent);
-            }
+            if opts.show_parent
+                && let Some(parent) = parent_entry(dir) {
+                    entries.push(parent);
+                }
             Ok(entries)
         }
         Location::Results { root, items, .. } => Ok(items
@@ -173,6 +180,7 @@ impl Tab {
             location: Location::Dir(dir),
             entries: Vec::new(),
             cursor: 0,
+            cursor_visible: false,
             selected: HashSet::new(),
             view_mode: ViewMode::Full,
             sort: SortSpec::default(),
@@ -205,8 +213,9 @@ impl Tab {
         }
     }
 
+    /// The item under the cursor, when the cursor is shown.
     pub fn cursor_entry(&self) -> Option<&Entry> {
-        self.entries.get(self.cursor)
+        if self.cursor_visible { self.entries.get(self.cursor) } else { None }
     }
 
     pub fn index_of(&self, path: &Path) -> Option<usize> {
@@ -219,15 +228,19 @@ impl Tab {
         self.location = location;
         self.entries = entries;
         self.selected.clear();
-        self.cursor = focus.and_then(|p| self.index_of(p)).unwrap_or(0);
+        // Coming back out of a folder selects it, as in Finder; otherwise nothing is.
+        let focused = focus.and_then(|p| self.index_of(p));
+        self.cursor = focused.unwrap_or(0);
+        self.cursor_visible = focused.is_some();
     }
 
     /// Re-reads the current location, keeping the cursor item and the selection
-    /// (items that disappeared are dropped).
+    /// (items that disappeared are dropped; when the cursor item is gone, nothing takes
+    /// its place).
     pub fn reload(&mut self, opts: ListOptions) -> io::Result<()> {
         let mut entries = read_location(&self.location, opts)?;
         sort_entries(&mut entries, self.sort, opts.folders_first, &self.dir_sizes);
-        let cursor_path = self.cursor_entry().map(|e| (e.path.clone(), e.is_parent()));
+        let cursor_path = self.entries.get(self.cursor).map(|e| (e.path.clone(), e.is_parent()));
         let old_cursor = self.cursor;
         self.entries = entries;
         let present: HashSet<&PathBuf> = self.entries.iter().map(|e| &e.path).collect();
@@ -235,16 +248,22 @@ impl Tab {
         self.dir_sizes.retain(|p, _| present.contains(p));
         self.cursor = match cursor_path {
             Some((_, true)) => 0,
-            Some((p, false)) => self.index_of(&p).unwrap_or(old_cursor),
+            Some((p, false)) => self.index_of(&p).unwrap_or_else(|| {
+                self.cursor_visible = false;
+                old_cursor
+            }),
             None => old_cursor,
         };
         self.clamp_cursor();
+        if self.entries.is_empty() {
+            self.cursor_visible = false;
+        }
         Ok(())
     }
 
     /// Re-sorts without touching the disk.
     pub fn resort(&mut self, opts: ListOptions) {
-        let cursor_path = self.cursor_entry().map(|e| e.path.clone());
+        let cursor_path = self.entries.get(self.cursor).map(|e| e.path.clone());
         sort_entries(&mut self.entries, self.sort, opts.folders_first, &self.dir_sizes);
         if let Some(p) = cursor_path
             && let Some(ix) = self.entries.iter().position(|e| e.path == p) {
@@ -338,9 +357,15 @@ impl Tab {
     }
 
     /// Moves the cursor by `delta` rows. With `extend`, the row being left is marked
-    /// first (orthodox Shift+arrow behavior).
+    /// first (orthodox Shift+arrow behavior). A hidden cursor appears instead: on the first
+    /// row when moving down, on the last when moving up.
     pub fn move_cursor(&mut self, delta: isize, extend: bool) {
         if self.entries.is_empty() {
+            return;
+        }
+        if !self.cursor_visible {
+            self.cursor_visible = true;
+            self.cursor = if delta < 0 { self.entries.len() - 1 } else { 0 };
             return;
         }
         if extend {
@@ -350,17 +375,23 @@ impl Tab {
         self.cursor = (self.cursor as isize + delta).clamp(0, last) as usize;
     }
 
+    /// Puts the cursor on row `ix` and shows it.
     pub fn set_cursor(&mut self, ix: usize) {
         self.cursor = ix;
+        self.cursor_visible = !self.entries.is_empty();
         self.clamp_cursor();
     }
 
     pub fn cursor_to_start(&mut self, extend: bool) {
-        self.move_cursor(-(self.entries.len() as isize), extend);
+        let shown = self.cursor_visible;
+        self.cursor_visible = true;
+        self.move_cursor(-(self.entries.len() as isize), extend && shown);
     }
 
     pub fn cursor_to_end(&mut self, extend: bool) {
-        self.move_cursor(self.entries.len() as isize, extend);
+        let shown = self.cursor_visible;
+        self.cursor_visible = true;
+        self.move_cursor(self.entries.len() as isize, extend && shown);
     }
 
     fn mark_cursor(&mut self, on: bool) {
@@ -390,8 +421,13 @@ impl Tab {
         }
     }
 
-    /// Toggles the cursor row and advances one row (Space / § behavior).
+    /// Toggles the cursor row and advances one row (Space / § behavior). A hidden cursor
+    /// just appears on the first row.
     pub fn toggle_cursor_and_advance(&mut self) {
+        if !self.cursor_visible {
+            self.move_cursor(1, false);
+            return;
+        }
         self.toggle_index(self.cursor);
         self.move_cursor(1, false);
     }
@@ -404,6 +440,18 @@ impl Tab {
                 self.selected.insert(e.path.clone());
             }
         }
+    }
+
+    /// Rubber-band selection: the selection becomes `base` plus the rows in `indices`
+    /// (`..` and out-of-range rows are skipped).
+    pub fn select_band(&mut self, base: &HashSet<PathBuf>, indices: impl IntoIterator<Item = usize>) {
+        let mut selected = base.clone();
+        for ix in indices {
+            if let Some(e) = self.entries.get(ix).filter(|e| !e.is_parent()) {
+                selected.insert(e.path.clone());
+            }
+        }
+        self.selected = selected;
     }
 
     fn eligible(e: &Entry, files_only: bool) -> bool {
@@ -448,8 +496,15 @@ impl Tab {
         }
     }
 
+    /// Unmarks every item (the cursor stays).
     pub fn unselect_all(&mut self) {
         self.selected.clear();
+    }
+
+    /// Nothing selected at all: no marked items and no cursor (click on empty space, Esc).
+    pub fn clear_selection(&mut self) {
+        self.selected.clear();
+        self.cursor_visible = false;
     }
 
     /// What an operation acts on: the selection in display order, or the cursor item.
@@ -518,6 +573,7 @@ impl Tab {
         match self.entries.iter().position(|e| !e.is_parent() && e.name.to_lowercase().starts_with(&p)) {
             Some(ix) => {
                 self.cursor = ix;
+                self.cursor_visible = true;
                 true
             }
             None => false,
@@ -727,6 +783,71 @@ mod tests {
     }
 
     #[test]
+    fn parent_row_is_optional() {
+        let tmp = fixture();
+        let no_parent = ListOptions { show_parent: false, ..opts() };
+        let mut tab = Tab::new(tmp.path().join("docs"));
+        tab.reload(no_parent).unwrap();
+        assert_eq!(names(&tab), ["inner", "readme.txt"]);
+        assert!(tab.targets().is_empty(), "nothing is selected in a folder just opened");
+
+        let mut panel = Panel::new(tmp.path().join("docs"));
+        panel.tab_mut().reload(no_parent).unwrap();
+        assert!(panel.go_up(no_parent).unwrap(), "going up still works without the row");
+        assert_eq!(panel.tab().working_dir(), tmp.path());
+        assert_eq!(panel.tab().cursor_entry().unwrap().name, "docs");
+
+        let empty = tmp.path().join("docs/inner");
+        let mut tab = Tab::new(empty);
+        tab.reload(no_parent).unwrap();
+        assert!(tab.entries.is_empty() && tab.cursor_entry().is_none() && tab.targets().is_empty());
+        tab.move_cursor(1, true);
+        tab.toggle_cursor_and_advance();
+        assert!(tab.selected.is_empty(), "an empty folder has nothing to select");
+    }
+
+    #[test]
+    fn nothing_is_selected_until_the_user_picks_something() {
+        let tmp = fixture();
+        let root = tmp.path().to_path_buf();
+        let mut tab = Tab::new(root.clone());
+        tab.reload(opts()).unwrap();
+        assert!(!tab.cursor_visible && tab.cursor_entry().is_none() && tab.targets().is_empty());
+        assert!(tab.select_mask(&Mask::parse("*"), false) > 0 && !tab.cursor_visible, "marking does not show the cursor");
+        tab.unselect_all();
+
+        tab.move_cursor(1, false);
+        assert_eq!(tab.cursor_entry().unwrap().name, "..", "the first ↓ shows the cursor on the first row");
+        tab.clear_selection();
+        tab.move_cursor(-1, false);
+        assert_eq!(tab.cursor_entry().unwrap().name, "c.txt", "the first ↑ shows it on the last row");
+        tab.clear_selection();
+        tab.cursor_to_start(true);
+        assert_eq!((tab.cursor, tab.selected.len()), (0, 0), "Home shows it without marking");
+        tab.clear_selection();
+        tab.toggle_cursor_and_advance();
+        assert!(tab.cursor_visible && tab.selected.is_empty(), "Space shows the cursor first");
+
+        tab.set_cursor(2);
+        tab.select_mask(&Mask::parse("*.md"), false);
+        tab.clear_selection();
+        assert!(tab.targets().is_empty(), "clearing drops marks and the cursor");
+        assert!(tab.type_ahead("b") && tab.cursor_entry().unwrap().name == "b.md", "typing a name selects it");
+
+        // The selected item goes away: nothing is selected instead of its neighbour.
+        tab.set_cursor(tab.index_of(&root.join("b.md")).unwrap());
+        fs::remove_file(root.join("b.md")).unwrap();
+        tab.reload(opts()).unwrap();
+        assert!(tab.cursor_entry().is_none());
+
+        // Opening a folder selects nothing; coming back out selects the folder.
+        tab.navigate(root.join("docs"), opts()).unwrap();
+        assert!(tab.cursor_entry().is_none());
+        tab.go_up(opts()).unwrap();
+        assert_eq!(tab.cursor_entry().unwrap().name, "docs");
+    }
+
+    #[test]
     fn navigation_history_and_go_up_focus() {
         let tmp = fixture();
         let root = tmp.path().to_path_buf();
@@ -805,6 +926,15 @@ mod tests {
         assert_eq!(tab.targets().len(), 4);
         let s = tab.stats();
         assert_eq!((s.selected_files, s.selected_dirs, s.selected_bytes), (3, 1, 7));
+
+        // Rubber band: replaces the selection, or adds to a kept base; `..` never joins.
+        tab.select_band(&HashSet::new(), [0, 1, 2, 99]);
+        assert_eq!(tab.targets().iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["docs", "a.txt"]);
+        let base: HashSet<PathBuf> = [tmp.path().join("c.txt")].into();
+        tab.select_band(&base, [3]);
+        assert_eq!(tab.targets().iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["b.md", "c.txt"]);
+        tab.select_band(&base, []);
+        assert_eq!(tab.selected, base, "shrinking the band back to nothing restores the base");
     }
 
     #[test]
