@@ -254,6 +254,12 @@ These Commander One features are out of scope, as listed in SPEC.md §10:
 - Get Finder Info and Make Alias go through Finder via AppleScript. The first use asks for
   Automation permission.
 
+## Support
+
+If this app is useful to you, you can buy me a beer. Thank you! 🍺
+
+[![Buy me a beer](https://img.buymeacoffee.com/button-api/?text=Buy%20me%20a%20beer&emoji=%F0%9F%8D%BA&slug=sonatina_dream&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff)](https://buymeacoffee.com/sonatina_dream)
+
 ## License
 
 MIT. See [LICENSE](LICENSE). Third-party crates keep their own licenses.
